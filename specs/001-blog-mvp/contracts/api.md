@@ -31,6 +31,7 @@
     action: "save-draft" | "publish" | "unpublish" | "delete",
     slug: string,            // ^[a-z0-9]+(-[a-z0-9]+)*$
     originalSlug?: string,   // 기존 글 수정 시 필수 — 편집 시작 시점의 slug
+    originalStatus?: "draft" | "published",  // 편집 시작 시점의 상태 — 재발행 판정 근거 (구현 리뷰 반영)
     frontmatter?: {...},     // save-draft | publish 시 필수
     body?: string,           // save-draft | publish 시 필수
     sha?: string,            // 기존 파일 수정·이동·삭제 시 필수
@@ -44,7 +45,9 @@
   4. MDX 컴파일 검증 (R1 파이프라인, import/export 금지·미등록 컴포넌트 거부 포함) → 실패 `422 invalid-mdx` (`detail`에 오류 위치/메시지)
   5. 대상 경로 충돌 검사 → 충돌 & `!overwrite`면 `409 slug-exists`
   6. GitHub 커밋 실행 → sha 불일치 `409 stale-sha` ("다른 곳에서 변경됨" — 재로드 유도)
-- 커밋 방식: 단일 파일 액션은 Contents API, **publish/unpublish(2파일 이동)는 Git Data API 단일 커밋(원자적)**. 커밋 메시지 `content: {action} {slug}` (R4).
+- **재발행 판정 (구현 리뷰 반영)**: `publish`는 `originalStatus === "published"`(발행본을 열어 편집한 세션)일 때만 기존 발행본 갱신(재발행)으로 취급한다. 신규 세션·초안 세션이 기존 발행 slug와 겹치면 `409 slug-exists`(overwrite로만 통과). 초안 파일은 그 초안을 열어 편집한 세션(`originalStatus === "draft"`)의 발행에서만 이동·소비된다 — 무관한 동명 초안을 휩쓸지 않음.
+- `unpublish`/`delete`는 `sha` 누락 시 `400 invalid-request` (낙관적 잠금 필수의 명문화).
+- 커밋 방식: 단일 파일 액션은 Contents API, **publish/unpublish(2파일 이동)는 Git Data API 단일 커밋(원자적)**. 커밋 메시지 `content: {action} {slug}` (R4). 이미지 커밋은 `content: image {slug}/{filename}`.
 - 성공 응답: `{ ok: true, status, commitUrl, commitSha }` — `commitSha`는 배포 상태 폴링에 사용
 
 ## GET /api/admin/deploy-status — 배포 반영 확인
@@ -60,7 +63,7 @@
 
 ## POST /api/admin/images — 이미지 업로드
 
-- 요청: `{ slug: string, filename: string, data: string(base64) }` — 최대 4MB, 허용 형식 png/jpg/jpeg/gif/webp (**SVG 제외** — R8, 매직 바이트 검증)
+- 요청: `{ slug: string, filename: string, data: string(base64) }` — 원본 최대 3MB(base64 ×1.33 팽창 후에도 Vercel 요청 한도 4.5MB 내 — 구현 리뷰 반영), 허용 형식 png/jpg/jpeg/gif/webp (**SVG 제외** — R8, 매직 바이트 검증)
 - 처리: `public/images/{slug}/{filename}` 커밋. 파일명 충돌 시 `-1`, `-2` 접미사 자동 부여.
 - 응답: `{ ok: true, path: "/images/{slug}/{filename}" }` — 에디터가 본문에 `![](path)` 삽입
 - 실패: `400 invalid-image` (형식·크기), `502 github-error`
