@@ -14,7 +14,11 @@ type OgFont = { name: string; data: Buffer; weight: 400 | 700; style: "normal" }
 
 let fontsPromise: Promise<OgFont[]> | null = null;
 
-/** 제목용 세리프(Noto Serif KR Bold — B1 톤) + 라벨용 산세리프(Pretendard Regular) */
+/**
+ * 제목용 세리프(Noto Serif KR Bold — B1 톤) + 라벨용 산세리프(Pretendard Regular).
+ * 자산이 누락된 배포(파일 트레이싱 실수 등)에서도 OG 라우트가 500이 되지 않도록
+ * 실패 시 기본 폰트로 폴백한다 — 한글 글리프는 깨지지만 이미지는 응답한다 (codex-review 반영).
+ */
 function loadOgFonts(): Promise<OgFont[]> {
   fontsPromise ??= Promise.all([
     readFile(path.join(OG_FONT_DIR, "NotoSerifKR-Bold.ttf")).then(
@@ -23,7 +27,11 @@ function loadOgFonts(): Promise<OgFont[]> {
     readFile(path.join(OG_FONT_DIR, "Pretendard-Regular.otf")).then(
       (data): OgFont => ({ name: "Pretendard", data, weight: 400, style: "normal" }),
     ),
-  ]);
+  ]).catch((err) => {
+    console.error("OG 폰트 로드 실패 — 기본 폰트로 폴백:", err);
+    fontsPromise = null; // 다음 호출에서 재시도
+    return [] as OgFont[];
+  });
   return fontsPromise;
 }
 
