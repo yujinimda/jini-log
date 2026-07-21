@@ -129,9 +129,12 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     // 발행은 재배포를 유발한다 — 반영 상태 폴링 시작. 초안은 빌드 대상이 아니다.
     setDeploySha(action === "publish" ? data.commitSha : null);
 
+    // URL을 저장된 글 기준으로 동기화 — 새로고침해도 같은 글 편집이 이어진다
+    const statusQuery = data.status === "published" ? "published" : "draft";
+    window.history.replaceState(null, "", `/admin/write?slug=${trimmedSlug}&status=${statusQuery}`);
+
     // 다음 수정 커밋을 위한 새 파일 sha 재조회 (응답 계약에는 파일 sha가 없다)
     try {
-      const statusQuery = data.status === "published" ? "published" : "draft";
       const single = await fetch(`/api/admin/posts/${trimmedSlug}?status=${statusQuery}`);
       if (single.ok) {
         const { sha: newSha } = (await single.json()) as { sha: string };
