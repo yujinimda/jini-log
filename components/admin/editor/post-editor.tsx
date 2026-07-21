@@ -7,6 +7,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import type { PostStatus } from "@/lib/types";
 import { FrontmatterFields } from "./frontmatter-form";
 import { Preview } from "./preview";
+import { useDraftBackup } from "./use-draft-backup";
 import { emptyForm, fromFrontmatter, readApiError, toFrontmatter, type FrontmatterForm } from "./types";
 
 export interface PostEditorProps {
@@ -33,6 +34,17 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   const [sha, setSha] = useState<string | undefined>(undefined);
 
   const frontmatter = useMemo(() => toFrontmatter(form), [form]);
+
+  // 작성 중 자동 백업·복원 (FR-007) — 저장 성공 시 clearBackup 호출
+  const backup = useDraftBackup({ originalSlug, form, body, slug, ready: !loading && !loadError });
+
+  const restoreBackup = () => {
+    if (!backup.pending) return;
+    setForm(backup.pending.form);
+    setBody(backup.pending.body);
+    if (status !== "published") setSlug(backup.pending.slug);
+    backup.dismissPending();
+  };
 
   // 기존 글 로드 — GitHub 최신본 + sha (편집 시작)
   useEffect(() => {
@@ -81,6 +93,31 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
+      {backup.pending && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+        >
+          <span>
+            저장되지 않은 작성 내용이 있습니다 (
+            {new Date(backup.pending.savedAt).toLocaleString("ko-KR")} 백업). 복원할까요?
+          </span>
+          <span className="flex shrink-0 gap-2">
+            <button
+              onClick={restoreBackup}
+              className="rounded-md bg-amber-600 px-2 py-1 text-xs font-medium text-white"
+            >
+              복원
+            </button>
+            <button
+              onClick={backup.clearBackup}
+              className="rounded-md border border-amber-300 px-2 py-1 text-xs"
+            >
+              백업 삭제
+            </button>
+          </span>
+        </div>
+      )}
       <header className="border-b border-zinc-200 px-4 py-3">
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-sm font-semibold text-zinc-700">
