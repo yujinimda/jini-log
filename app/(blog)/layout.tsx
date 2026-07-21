@@ -1,5 +1,7 @@
-// 공개 블로그 공통 레이아웃 (T032) — 반응형, 타이포 중심. 소유: 레인 B
+// 공개 블로그 공통 레이아웃 (T032 → 002 T017: ⌘K 검색 마운트) — 반응형, 타이포 중심. 소유: 레인 B
+// SearchCommand는 공개 레이아웃에만 마운트한다 — 어드민 미마운트 (에디터 단축키 충돌 방지, 계약).
 import type { Metadata } from "next";
+import { SearchCommand } from "@/components/blog/search-command";
 import { SiteFooter } from "@/components/blog/site-footer";
 import { SiteHeader } from "@/components/blog/site-header";
 import { siteUrl } from "@/components/blog/site";
@@ -19,6 +21,7 @@ export default function BlogLayout({ children }: Readonly<{ children: React.Reac
       <SiteHeader />
       <main className="flex-1 py-10 sm:py-12">{children}</main>
       <SiteFooter />
+      <SearchCommand />
     </div>
   );
 }
