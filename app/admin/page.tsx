@@ -2,20 +2,31 @@
 // 글별 조회수·최근 발행일 (FR-011·014). 소유: 레인 C
 import Link from "next/link";
 import { getContentList } from "@/lib/github";
-import { getViewTotals } from "@/lib/views";
+import { getDailyViews, getViewTotals, type DailyViews } from "@/lib/views";
 import type { DraftListItem, PostMeta } from "@/lib/types";
 import { PostRowActions } from "@/components/admin/dashboard/post-row-actions";
+import { ViewsChart } from "@/components/admin/dashboard/views-chart";
 
 export const metadata = { title: "대시보드" };
 // GitHub 최신본·조회수는 요청 시점 데이터 — 캐시 금지
 export const dynamic = "force-dynamic";
 
-async function loadViewTotals(): Promise<{ totals: Record<string, number>; error: string | null }> {
+const TREND_DAYS = 30;
+
+interface ViewsData {
+  totals: Record<string, number>;
+  daily: DailyViews[];
+  error: string | null;
+}
+
+async function loadViews(): Promise<ViewsData> {
   try {
-    return { totals: await getViewTotals(), error: null };
+    // 추이는 lib/views의 getDailyViews 사용만 (T043 — 레인 A 소유 모듈)
+    const [totals, daily] = await Promise.all([getViewTotals(), getDailyViews(TREND_DAYS)]);
+    return { totals, daily, error: null };
   } catch (err) {
     // 조회수 조회 실패가 글 관리를 막지 않는다 — 목록은 그대로 표시
-    return { totals: {}, error: (err as Error).message };
+    return { totals: {}, daily: [], error: (err as Error).message };
   }
 }
 
@@ -106,9 +117,9 @@ function PostTable({
 }
 
 export default async function AdminDashboardPage() {
-  const [{ posts, drafts }, { totals, error: viewsError }] = await Promise.all([
+  const [{ posts, drafts }, { totals, daily, error: viewsError }] = await Promise.all([
     getContentList(),
-    loadViewTotals(),
+    loadViews(),
   ]);
 
   return (
@@ -127,6 +138,13 @@ export default async function AdminDashboardPage() {
         <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           조회수를 불러오지 못했습니다: {viewsError}
         </p>
+      )}
+
+      {!viewsError && (
+        <section className="mb-8">
+          <h2 className="mb-2 text-sm font-semibold text-zinc-700">조회수 추이</h2>
+          <ViewsChart data={daily} days={TREND_DAYS} />
+        </section>
       )}
 
       <section className="mb-8">
