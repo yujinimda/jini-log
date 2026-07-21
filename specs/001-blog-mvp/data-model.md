@@ -67,3 +67,4 @@ create function increment_view(p_slug text) returns void ...
 | `AUTH_GITHUB_ID/SECRET`, `AUTH_SECRET` | Auth.js |
 | `GITHUB_CONTENT_TOKEN`, `GITHUB_REPO` | 콘텐츠 커밋용 fine-grained PAT · 대상 리포 |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | 조회수 (서버 전용) |
+| `VERCEL_TOKEN`, `VERCEL_PROJECT_ID` | 배포 상태 폴링 (R10) |

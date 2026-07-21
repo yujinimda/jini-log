@@ -30,6 +30,7 @@
   {
     action: "save-draft" | "publish" | "unpublish" | "delete",
     slug: string,            // ^[a-z0-9]+(-[a-z0-9]+)*$
+    originalSlug?: string,   // 기존 글 수정 시 필수 — 편집 시작 시점의 slug
     frontmatter?: {...},     // save-draft | publish 시 필수
     body?: string,           // save-draft | publish 시 필수
     sha?: string,            // 기존 파일 수정·이동·삭제 시 필수
@@ -38,16 +39,28 @@
   ```
 - 처리 순서 (save-draft / publish):
   1. slug 형식 검증 → 실패 `400 invalid-slug`
-  2. frontmatter zod 검증 → 실패 `400 invalid-frontmatter` (필드별 메시지)
-  3. MDX 컴파일 검증 (R1 파이프라인) → 실패 `422 invalid-mdx` (`detail`에 오류 위치/메시지)
-  4. 대상 경로 충돌 검사 → 충돌 & `!overwrite`면 `409 slug-exists`
-  5. GitHub 커밋 실행 → sha 불일치 `409 stale-sha` ("다른 곳에서 변경됨" — 재로드 유도)
-- publish: 초안 존재 시 posts/ create + drafts/ delete 순차 실행. unpublish: 역방향. delete: 해당 파일 delete.
-- 성공 응답: `{ ok: true, status, commitUrl }`
+  2. **slug 불변 강제 (FR-016, 서버 강제)**: `originalSlug`가 있고 대상이 발행 글인데 `slug !== originalSlug`면 `400 slug-immutable` — UI가 아니라 서버가 거부
+  3. frontmatter zod 검증 → 실패 `400 invalid-frontmatter` (필드별 메시지)
+  4. MDX 컴파일 검증 (R1 파이프라인, import/export 금지·미등록 컴포넌트 거부 포함) → 실패 `422 invalid-mdx` (`detail`에 오류 위치/메시지)
+  5. 대상 경로 충돌 검사 → 충돌 & `!overwrite`면 `409 slug-exists`
+  6. GitHub 커밋 실행 → sha 불일치 `409 stale-sha` ("다른 곳에서 변경됨" — 재로드 유도)
+- 커밋 방식: 단일 파일 액션은 Contents API, **publish/unpublish(2파일 이동)는 Git Data API 단일 커밋(원자적)**. 커밋 메시지 `content: {action} {slug}` (R4).
+- 성공 응답: `{ ok: true, status, commitUrl, commitSha }` — `commitSha`는 배포 상태 폴링에 사용
+
+## GET /api/admin/deploy-status — 배포 반영 확인
+
+- 쿼리: `?sha={commitSha}`
+- 처리: Vercel Deployments API에서 해당 커밋의 배포 조회
+- 응답: `{ state: "building" | "ready" | "error" | "not-found" }` — 어드민이 폴링하여 "반영 중/완료/배포 실패" 표시 (스펙 엣지케이스 "반영 대기 안내")
+
+## POST /api/admin/validate — 저장 없이 검증만
+
+- 요청: `{ frontmatter, body }` — 에디터가 디바운스 호출 (R2 서버 검증)
+- 응답: `{ valid: true }` 또는 `422` + `invalid-frontmatter | invalid-mdx` 상세 (저장 API와 동일 판정 로직 공유)
 
 ## POST /api/admin/images — 이미지 업로드
 
-- 요청: `{ slug: string, filename: string, data: string(base64) }` — 최대 4MB, 허용 확장자 png/jpg/jpeg/gif/webp/svg
+- 요청: `{ slug: string, filename: string, data: string(base64) }` — 최대 4MB, 허용 형식 png/jpg/jpeg/gif/webp (**SVG 제외** — R8, 매직 바이트 검증)
 - 처리: `public/images/{slug}/{filename}` 커밋. 파일명 충돌 시 `-1`, `-2` 접미사 자동 부여.
 - 응답: `{ ok: true, path: "/images/{slug}/{filename}" }` — 에디터가 본문에 `![](path)` 삽입
 - 실패: `400 invalid-image` (형식·크기), `502 github-error`

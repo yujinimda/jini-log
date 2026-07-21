@@ -53,25 +53,28 @@ specs/001-blog-mvp/
 
 ```text
 app/
-├── (blog)/                  # 공개 영역 (전부 SSG)
+├── sitemap.ts               # Next 규약: app 루트 (URL: /sitemap.xml)
+├── robots.ts                # Next 규약: app 루트 (URL: /robots.txt)
+├── opengraph-image.tsx      # 사이트 기본 OG
+├── (blog)/                  # 공개 영역 (전부 SSG) — 라우트 그룹은 URL에 미반영
 │   ├── page.tsx             # 홈(글 목록)
-│   ├── posts/[slug]/page.tsx
+│   ├── posts/[slug]/
+│   │   ├── page.tsx
+│   │   └── opengraph-image.tsx  # 글별 OG — page와 같은 세그먼트 폴더 (Next 규약)
 │   ├── tags/[tag]/page.tsx
-│   ├── feed.xml/route.ts    # RSS
-│   ├── sitemap.ts
-│   └── robots.ts
+│   └── feed.xml/route.ts    # RSS
 ├── admin/                   # 인증 필요 영역
 │   ├── page.tsx             # 대시보드
 │   └── write/page.tsx       # 에디터 (신규/수정 공용)
-├── api/
-│   ├── auth/[...nextauth]/route.ts
-│   ├── views/route.ts       # POST 조회 기록
-│   └── admin/
-│       ├── posts/route.ts   # 저장·발행·발행취소·삭제
-│       ├── posts/[slug]/route.ts  # 단건 조회(최신본)
-│       └── images/route.ts  # 이미지 업로드
-├── opengraph-image.tsx      # 사이트 기본 OG
-└── posts/[slug]/opengraph-image.tsx  # 글별 OG 자동 생성
+└── api/
+    ├── auth/[...nextauth]/route.ts
+    ├── views/route.ts       # POST 조회 기록
+    └── admin/
+        ├── posts/route.ts   # 저장·발행·발행취소·삭제
+        ├── posts/[slug]/route.ts  # 단건 조회(최신본)
+        ├── validate/route.ts      # 저장 없이 MDX·frontmatter 검증 (에디터 디바운스)
+        ├── deploy-status/route.ts # Vercel 배포 상태 폴링
+        └── images/route.ts  # 이미지 업로드
 
 content/
 ├── posts/*.mdx              # 발행 글 (파일명 = slug)
@@ -84,8 +87,10 @@ components/
 
 lib/
 ├── content.ts               # 파일 로딩·frontmatter 파싱(zod)·목록 생성
-├── mdx.ts                   # MDX 컴파일(렌더·검증 공용 파이프라인)
-├── github.ts                # Octokit 커밋·읽기 래퍼
+├── mdx-options.ts           # 컴파일 설정 단일 진실 공급원 (동형 — 서버·클라이언트 공용)
+├── mdx.ts                   # MDX 컴파일(렌더·검증 공용 파이프라인, mdx-options 사용)
+├── github.ts                # Octokit 래퍼 — Contents API + 원자 이동용 Git Data API
+├── deploy.ts                # Vercel Deployments API 조회
 ├── views.ts                 # Supabase 조회수 read/write
 └── auth.ts                  # Auth.js 설정 + 운영자 판별
 
