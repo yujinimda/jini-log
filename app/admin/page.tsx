@@ -1,11 +1,10 @@
-// 어드민 대시보드 (T041, US4) — 발행/초안 구분 목록(GitHub 최신본), invalid 초안 오류 표시,
-// 글별 조회수·최근 발행일 (FR-011·014). 소유: 레인 C
+// 어드민 대시보드 (T041, US4 → 002 T023: shadcn Table + 클라이언트 정렬) — 발행/초안 구분
+// 목록(GitHub 최신본), invalid 초안 오류 표시, 글별 조회수·최근 발행일 (FR-011·014). 소유: 레인 C
 import Link from "next/link";
 import { getContentList } from "@/lib/github";
 import { getDailyViews, getViewTotals, type DailyViews } from "@/lib/views";
-import type { DraftListItem, PostMeta } from "@/lib/types";
 import { DeployBanner } from "@/components/admin/dashboard/deploy-banner";
-import { PostRowActions } from "@/components/admin/dashboard/post-row-actions";
+import { PostTable } from "@/components/admin/dashboard/post-table";
 import { ViewsChart } from "@/components/admin/dashboard/views-chart";
 
 export const metadata = { title: "대시보드" };
@@ -30,97 +29,6 @@ async function loadViews(): Promise<ViewsData> {
     // 조회수 조회 실패가 글 관리를 막지 않는다 — 목록은 그대로 표시
     return { totals: null, daily: [], error: (err as Error).message };
   }
-}
-
-function PostRow({ post, views }: { post: PostMeta; views: number | null }) {
-  return (
-    <tr className="border-b border-zinc-100">
-      <td className="px-3 py-2">
-        <Link
-          href={`/admin/write?slug=${post.slug}&status=${post.status}`}
-          className="font-medium text-zinc-900 hover:underline"
-        >
-          {post.title}
-        </Link>
-        <span className="ml-2 text-xs text-zinc-400">{post.slug}</span>
-      </td>
-      <td className="px-3 py-2 text-xs whitespace-nowrap text-zinc-500">{post.date}</td>
-      <td className="px-3 py-2 text-xs text-zinc-500">
-        {post.tags.length > 0 ? post.tags.join(", ") : "—"}
-      </td>
-      <td className="px-3 py-2 text-right text-xs tabular-nums">
-        {post.status === "published" ? (views ?? "—") : ""}
-      </td>
-      <td className="px-3 py-2 text-right">
-        <PostRowActions slug={post.slug} status={post.status} />
-      </td>
-    </tr>
-  );
-}
-
-function InvalidDraftRow({ draft }: { draft: Extract<DraftListItem, { status: "invalid" }> }) {
-  return (
-    <tr className="border-b border-zinc-100 bg-red-50/50">
-      <td className="px-3 py-2">
-        <Link
-          href={`/admin/write?slug=${draft.slug}&status=draft`}
-          className="font-medium text-red-700 hover:underline"
-        >
-          {draft.slug}
-        </Link>
-        <p className="mt-0.5 text-xs text-red-600">형식 오류: {draft.error}</p>
-      </td>
-      <td className="px-3 py-2 text-xs text-zinc-400">—</td>
-      <td className="px-3 py-2 text-xs text-zinc-400">—</td>
-      <td className="px-3 py-2"></td>
-      <td className="px-3 py-2 text-right">
-        <PostRowActions slug={draft.slug} status="draft" />
-      </td>
-    </tr>
-  );
-}
-
-function PostTable({
-  items,
-  totals,
-  emptyText,
-}: {
-  items: (PostMeta | DraftListItem)[];
-  /** null = 조회수 로드 실패(알 수 없음) — 0으로 위장하지 않는다 (codex-review 반영) */
-  totals: Record<string, number> | null;
-  emptyText: string;
-}) {
-  if (items.length === 0) {
-    return <p className="px-3 py-6 text-center text-sm text-zinc-400">{emptyText}</p>;
-  }
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
-            <th className="px-3 py-2 font-medium">제목</th>
-            <th className="px-3 py-2 font-medium">발행일</th>
-            <th className="px-3 py-2 font-medium">태그</th>
-            <th className="px-3 py-2 text-right font-medium">조회수</th>
-            <th className="px-3 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) =>
-            item.status === "invalid" ? (
-              <InvalidDraftRow key={`invalid-${item.slug}`} draft={item} />
-            ) : (
-              <PostRow
-                key={`${item.status}-${item.slug}`}
-                post={item}
-                views={totals ? (totals[item.slug] ?? 0) : null}
-              />
-            ),
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 export default async function AdminDashboardPage() {
