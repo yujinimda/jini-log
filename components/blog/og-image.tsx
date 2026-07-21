@@ -1,32 +1,35 @@
-// OG 이미지 공용 템플릿 (T036) — 사이트 기본·글별 이미지가 같은 디자인을 쓴다. 소유: 레인 B
+// OG 이미지 공용 템플릿 (T036 → 002 T014) — 사이트 기본·글별 이미지가 같은 디자인을 쓴다. 소유: 레인 B
+// 폰트는 assets/fonts/og/의 self-host TTF/OTF를 fs로 읽는다 (research R2) —
+// ImageResponse(Satori)는 woff2 미지원이라 웹(woff2)과 "같은 서체, 포맷별 파일"로 통일.
+// 구글 폰트 런타임 fetch 없음 — 오프라인·빌드 환경에서도 항상 같은 렌더.
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
 
 export const OG_SIZE = { width: 1200, height: 630 };
 
-/**
- * 한글 글리프 폰트 로드 — Google Fonts css2의 text 서브셋으로 필요한 글자만.
- * (ImageResponse 기본 폰트에는 한글이 없다.) 실패 시 null — 기본 폰트로 렌더.
- */
-async function loadKoreanFont(text: string): Promise<ArrayBuffer | null> {
-  try {
-    const cssUrl = `https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&text=${encodeURIComponent(text)}`;
-    const cssRes = await fetch(cssUrl);
-    if (!cssRes.ok) return null;
-    const css = await cssRes.text();
-    // 브라우저 UA 없이 요청하면 ttf/otf 소스를 반환한다 (ImageResponse는 woff2 미지원)
-    const fontUrl = css.match(/src: url\((.+?)\) format\('(?:opentype|truetype)'\)/)?.[1];
-    if (!fontUrl) return null;
-    const fontRes = await fetch(fontUrl);
-    if (!fontRes.ok) return null;
-    return await fontRes.arrayBuffer();
-  } catch {
-    return null;
-  }
+const OG_FONT_DIR = path.join(process.cwd(), "assets", "fonts", "og");
+
+type OgFont = { name: string; data: Buffer; weight: 400 | 700; style: "normal" };
+
+let fontsPromise: Promise<OgFont[]> | null = null;
+
+/** 제목용 세리프(Noto Serif KR Bold — B1 톤) + 라벨용 산세리프(Pretendard Regular) */
+function loadOgFonts(): Promise<OgFont[]> {
+  fontsPromise ??= Promise.all([
+    readFile(path.join(OG_FONT_DIR, "NotoSerifKR-Bold.ttf")).then(
+      (data): OgFont => ({ name: "Noto Serif KR", data, weight: 700, style: "normal" }),
+    ),
+    readFile(path.join(OG_FONT_DIR, "Pretendard-Regular.otf")).then(
+      (data): OgFont => ({ name: "Pretendard", data, weight: 400, style: "normal" }),
+    ),
+  ]);
+  return fontsPromise;
 }
 
-/** 타이포 중심 카드: 큰 제목 + 하단 라벨 (블로그 톤과 일치하는 zinc 다크) */
+/** 타이포 중심 카드: 세리프 큰 제목 + 하단 라벨 (블로그 톤과 일치하는 zinc 다크) */
 export async function ogImage({ title, label }: { title: string; label: string }) {
-  const font = await loadKoreanFont(`${title}${label}`);
+  const fonts = await loadOgFonts();
   return new ImageResponse(
     (
       <div
@@ -39,7 +42,7 @@ export async function ogImage({ title, label }: { title: string; label: string }
           padding: 80,
           backgroundColor: "#18181b",
           color: "#fafafa",
-          fontFamily: '"Noto Sans KR", sans-serif',
+          fontFamily: '"Noto Serif KR", serif',
         }}
       >
         <div
@@ -47,8 +50,8 @@ export async function ogImage({ title, label }: { title: string; label: string }
             marginTop: 96,
             fontSize: 64,
             fontWeight: 700,
-            lineHeight: 1.3,
-            letterSpacing: "-0.02em",
+            lineHeight: 1.35,
+            letterSpacing: "-0.01em",
             wordBreak: "keep-all",
             display: "block",
             lineClamp: 4,
@@ -56,14 +59,18 @@ export async function ogImage({ title, label }: { title: string; label: string }
         >
           {title}
         </div>
-        <div style={{ fontSize: 30, color: "#a1a1aa" }}>{label}</div>
+        <div
+          style={{
+            fontSize: 30,
+            color: "#a1a1aa",
+            fontFamily: '"Pretendard", sans-serif',
+            fontWeight: 400,
+          }}
+        >
+          {label}
+        </div>
       </div>
     ),
-    {
-      ...OG_SIZE,
-      fonts: font
-        ? [{ name: "Noto Sans KR", data: font, weight: 700, style: "normal" }]
-        : undefined,
-    },
+    { ...OG_SIZE, fonts },
   );
 }
