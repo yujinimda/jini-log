@@ -2,10 +2,11 @@
 // 에디터 본체 (T023) — CodeMirror 마크다운 입력 + frontmatter 폼 + 기존 글 로드.
 // 발행된 글은 slug 잠금 (FR-016 — 서버도 slug-immutable로 강제). 소유: 레인 C
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import type { PostActionResponse, PostStatus } from "@/lib/types";
-import { DeployStatus } from "./deploy-status";
+import { setPendingDeploy } from "@/components/admin/dashboard/deploy-banner";
 import { FrontmatterFields } from "./frontmatter-form";
 import { imageUploadExtension } from "./image-upload";
 import { Preview } from "./preview";
@@ -69,8 +70,7 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   const [actionError, setActionError] = useState<ApiErrorInfo | null>(null);
   const [isStale, setIsStale] = useState(false);
   const [lastCommit, setLastCommit] = useState<{ url: string; action: string } | null>(null);
-  /** 발행 커밋 sha — 배포 상태 폴링 대상 (R10) */
-  const [deploySha, setDeploySha] = useState<string | null>(null);
+  const router = useRouter();
 
   async function runAction(action: "save-draft" | "publish", overwrite = false) {
     const trimmedSlug = slug.trim();
@@ -125,19 +125,24 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
 
     const data = (await res.json()) as PostActionResponse;
     backup.clearBackup();
-    setStatus(data.status === "published" ? "published" : "draft");
+
+    // 발행 완료 → 대시보드로 이동, 반영 상태는 대시보드 배너가 이어서 폴링 (사용자 피드백 반영)
+    if (action === "publish") {
+      setPendingDeploy({ sha: data.commitSha, label: `"${trimmedSlug}" 발행 반영` });
+      router.push("/admin");
+      return;
+    }
+
+    setStatus("draft");
     setOriginalSlug(trimmedSlug);
     setLastCommit({ url: data.commitUrl, action });
-    // 발행은 재배포를 유발한다 — 반영 상태 폴링 시작. 초안은 빌드 대상이 아니다.
-    setDeploySha(action === "publish" ? data.commitSha : null);
 
     // URL을 저장된 글 기준으로 동기화 — 새로고침해도 같은 글 편집이 이어진다
-    const statusQuery = data.status === "published" ? "published" : "draft";
-    window.history.replaceState(null, "", `/admin/write?slug=${trimmedSlug}&status=${statusQuery}`);
+    window.history.replaceState(null, "", `/admin/write?slug=${trimmedSlug}&status=draft`);
 
     // 다음 수정 커밋을 위한 새 파일 sha 재조회 (응답 계약에는 파일 sha가 없다)
     try {
-      const single = await fetch(`/api/admin/posts/${trimmedSlug}?status=${statusQuery}`);
+      const single = await fetch(`/api/admin/posts/${trimmedSlug}?status=draft`);
       if (single.ok) {
         const { sha: newSha } = (await single.json()) as { sha: string };
         setSha(newSha);
@@ -241,7 +246,6 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
                 {lastCommit.action === "publish" ? "발행 커밋" : "저장 커밋"} 보기
               </a>
             )}
-            {deploySha && <DeployStatus key={deploySha} commitSha={deploySha} />}
             {status !== "published" && (
               <button
                 onClick={() => runAction("save-draft")}

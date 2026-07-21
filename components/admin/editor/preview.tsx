@@ -6,6 +6,8 @@
 import { Component, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import * as runtime from "react/jsx-runtime";
 import { evaluate } from "@mdx-js/mdx";
+// 발행 본문 타이포(.prose)를 프리뷰에도 동일 적용 — "프리뷰 = 발행 모습" (FR-002)
+import "@/app/(blog)/blog.css";
 import { mdxComponents } from "@/components/mdx/registry";
 import { rehypePlugins, remarkPlugins } from "@/lib/mdx-options";
 import type { PostFrontmatter } from "@/lib/types";
