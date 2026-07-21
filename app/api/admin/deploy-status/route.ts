@@ -3,8 +3,12 @@
 import { NextResponse } from "next/server";
 import { getDeployStatus } from "@/lib/deploy";
 import { apiError } from "../_lib/http";
+import { requireOperator } from "../_lib/guard";
 
 export async function GET(req: Request) {
+  const denied = await requireOperator();
+  if (denied) return denied;
+
   const sha = new URL(req.url).searchParams.get("sha");
   if (!sha || !/^[0-9a-f]{7,40}$/i.test(sha)) {
     return apiError(400, "invalid-request", "sha 쿼리(커밋 SHA)가 필요합니다");

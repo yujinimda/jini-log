@@ -142,9 +142,19 @@ async function publish(req: PostActionRequest): Promise<PostActionResponse> {
   const targetPath = contentPath("published", req.slug);
   const draftPath = contentPath("draft", req.originalSlug ?? req.slug);
 
-  const [draftFile, publishedFile] = await Promise.all([getFile(draftPath), getFile(targetPath)]);
+  // 편집 세션의 출처(originalStatus)로 판정한다 — 추측 금지 (codex-review 반영):
+  // - 재발행: 발행본을 열어 편집한 세션만. 신규 세션이 기존 발행 slug와 겹치면 덮어쓰기 확인 강제.
+  // - 초안 소비: 그 초안을 열어 편집한 세션만. 무관한 동명 초안을 이동 커밋에 휩쓸지 않는다.
+  const editingPublished =
+    req.originalStatus === "published" && (req.originalSlug ?? req.slug) === req.slug;
+  const editingDraft = req.originalStatus === "draft";
 
-  const isRepublish = !!publishedFile && (!req.originalSlug || req.originalSlug === req.slug);
+  const [draftFile, publishedFile] = await Promise.all([
+    editingDraft ? getFile(draftPath) : Promise.resolve(null),
+    getFile(targetPath),
+  ]);
+
+  const isRepublish = !!publishedFile && editingPublished;
 
   // 5단계: 대상 경로 충돌 — 재발행(같은 글 갱신)이 아닌데 발행본이 이미 있으면 확인 필요
   if (publishedFile && !isRepublish && !req.overwrite) {
@@ -152,11 +162,11 @@ async function publish(req: PostActionRequest): Promise<PostActionResponse> {
   }
 
   // 6단계: 낙관적 잠금 — 편집 시작 시점의 파일(재발행=발행본, 초안 발행=초안) 기준
-  if (req.sha) assertFreshSha(isRepublish ? publishedFile : draftFile, req.sha, "글");
+  if (req.sha) assertFreshSha(editingDraft ? draftFile : publishedFile, req.sha, "글");
 
   let commit: CommitResult;
   try {
-    if (draftFile) {
+    if (editingDraft && draftFile) {
       // 초안 → 발행: 2파일 이동을 Git Data API 단일 커밋으로 (원자적, R4)
       commit = await commitAtomic(
         [
@@ -166,7 +176,7 @@ async function publish(req: PostActionRequest): Promise<PostActionResponse> {
         commitMessage("publish", req.slug),
       );
     } else {
-      // 재발행(즉시 재발행, FR-017) 또는 초안 없이 바로 발행
+      // 재발행(즉시 재발행, FR-017) 또는 신규 세션에서 바로 발행
       commit = await putFile({
         path: targetPath,
         content: source,

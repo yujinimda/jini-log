@@ -87,6 +87,8 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
           action,
           slug: trimmedSlug,
           originalSlug,
+          // 편집 출처(초안/발행본) — 서버의 재발행 판정 근거 (codex-review 반영)
+          originalStatus: status === "new" ? undefined : status,
           frontmatter,
           body,
           sha,

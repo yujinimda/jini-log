@@ -5,9 +5,13 @@ import { NextResponse } from "next/server";
 import { getContentList, GitHubError } from "@/lib/github";
 import type { PostActionRequest } from "@/lib/types";
 import { apiError } from "../_lib/http";
+import { requireOperator } from "../_lib/guard";
 import { executePostAction, PostActionError } from "../_lib/post-actions";
 
 export async function GET() {
+  const denied = await requireOperator();
+  if (denied) return denied;
+
   try {
     const { posts, drafts } = await getContentList();
     return NextResponse.json({ posts, drafts });
@@ -20,6 +24,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const denied = await requireOperator();
+  if (denied) return denied;
+
   let payload: PostActionRequest;
   try {
     payload = await req.json();

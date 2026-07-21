@@ -5,8 +5,12 @@ import matter from "gray-matter";
 import { isValidSlug } from "@/lib/content-schema";
 import { contentPath, getFile, GitHubError } from "@/lib/github";
 import { apiError } from "../../_lib/http";
+import { requireOperator } from "../../_lib/guard";
 
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
+  const denied = await requireOperator();
+  if (denied) return denied;
+
   const { slug } = await ctx.params;
   const statusParam = new URL(req.url).searchParams.get("status");
 

@@ -5,8 +5,11 @@ import { NextResponse } from "next/server";
 import { isValidSlug } from "@/lib/content-schema";
 import { getFile, GitHubError, putFile } from "@/lib/github";
 import { apiError } from "../_lib/http";
+import { requireOperator } from "../_lib/guard";
 
-const MAX_BYTES = 4 * 1024 * 1024; // 4MB — Vercel 요청 바디 한도 내 (R8)
+// base64는 원본의 ~1.33배로 팽창한다 — 3MB 원본 ≈ 4MB 전송으로 Vercel 요청
+// 한도(4.5MB) 안에 들어온다. 4MB 원본은 한도를 넘어 라우트에 도달조차 못 함 (codex-review 반영)
+const MAX_BYTES = 3 * 1024 * 1024;
 
 const ALLOWED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
 
@@ -44,6 +47,9 @@ function sanitizeFilename(filename: string): { base: string; ext: string } | nul
 }
 
 export async function POST(req: Request) {
+  const denied = await requireOperator();
+  if (denied) return denied;
+
   let payload: { slug?: unknown; filename?: unknown; data?: unknown };
   try {
     payload = await req.json();
@@ -78,7 +84,7 @@ export async function POST(req: Request) {
     return apiError(400, "invalid-image", "빈 파일입니다");
   }
   if (bytes.length > MAX_BYTES) {
-    return apiError(400, "invalid-image", "이미지는 4MB 이하여야 합니다");
+    return apiError(400, "invalid-image", "이미지는 3MB 이하여야 합니다");
   }
 
   const detected = detectImageType(bytes);

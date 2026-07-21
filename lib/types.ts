@@ -26,6 +26,12 @@ export interface PostActionRequest {
   slug: string;
   /** 기존 글 수정 시 편집 시작 시점의 slug — 발행 글 slug 변경을 서버에서 거부 (FR-016) */
   originalSlug?: string;
+  /**
+   * 편집 시작 시점의 상태 — 재발행 판정의 근거.
+   * "published"일 때만 기존 발행본 갱신(재발행)으로 취급하고,
+   * 신규 세션·초안 발행이 기존 발행 글과 slug가 겹치면 덮어쓰기 확인을 강제한다 (codex-review 반영)
+   */
+  originalStatus?: PostStatus;
   frontmatter?: PostFrontmatter;
   body?: string;
   /** 기존 파일 수정·이동·삭제 시 필수 (낙관적 잠금) */
