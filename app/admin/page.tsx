@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getContentList } from "@/lib/github";
 import { getDailyViews, getViewTotals, type DailyViews } from "@/lib/views";
 import type { DraftListItem, PostMeta } from "@/lib/types";
+import { DeployBanner } from "@/components/admin/dashboard/deploy-banner";
 import { PostRowActions } from "@/components/admin/dashboard/post-row-actions";
 import { ViewsChart } from "@/components/admin/dashboard/views-chart";
 
@@ -14,7 +15,8 @@ export const dynamic = "force-dynamic";
 const TREND_DAYS = 30;
 
 interface ViewsData {
-  totals: Record<string, number>;
+  /** null = 조회수 로드 실패(알 수 없음) — 0으로 위장하지 않는다 (codex-review 반영) */
+  totals: Record<string, number> | null;
   daily: DailyViews[];
   error: string | null;
 }
@@ -26,7 +28,7 @@ async function loadViews(): Promise<ViewsData> {
     return { totals, daily, error: null };
   } catch (err) {
     // 조회수 조회 실패가 글 관리를 막지 않는다 — 목록은 그대로 표시
-    return { totals: {}, daily: [], error: (err as Error).message };
+    return { totals: null, daily: [], error: (err as Error).message };
   }
 }
 
@@ -84,7 +86,8 @@ function PostTable({
   emptyText,
 }: {
   items: (PostMeta | DraftListItem)[];
-  totals: Record<string, number>;
+  /** null = 조회수 로드 실패(알 수 없음) — 0으로 위장하지 않는다 (codex-review 반영) */
+  totals: Record<string, number> | null;
   emptyText: string;
 }) {
   if (items.length === 0) {
@@ -107,7 +110,11 @@ function PostTable({
             item.status === "invalid" ? (
               <InvalidDraftRow key={`invalid-${item.slug}`} draft={item} />
             ) : (
-              <PostRow key={`${item.status}-${item.slug}`} post={item} views={totals[item.slug] ?? 0} />
+              <PostRow
+                key={`${item.status}-${item.slug}`}
+                post={item}
+                views={totals ? (totals[item.slug] ?? 0) : null}
+              />
             ),
           )}
         </tbody>
@@ -134,6 +141,7 @@ export default async function AdminDashboardPage() {
         </Link>
       </header>
 
+      <DeployBanner />
       {viewsError && (
         <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           조회수를 불러오지 못했습니다: {viewsError}

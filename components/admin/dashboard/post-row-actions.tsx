@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PostActionResponse, PostStatus } from "@/lib/types";
-import { DeployStatus } from "@/components/admin/editor/deploy-status";
+import { setPendingDeploy } from "@/components/admin/dashboard/deploy-banner";
 import { readApiError } from "@/components/admin/editor/types";
 
 type ActionKind = "unpublish" | "delete";
@@ -13,8 +13,6 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
   const router = useRouter();
   const [busy, setBusy] = useState<ActionKind | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** 공개 사이트에 영향을 주는 액션 후 배포 반영 폴링 (R10) */
-  const [deploySha, setDeploySha] = useState<string | null>(null);
 
   async function run(action: ActionKind, overwrite = false) {
     setBusy(action);
@@ -51,8 +49,14 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
       }
 
       const data = (await res.json()) as PostActionResponse;
-      // 발행 글이 바뀌면 재배포가 일어난다 — 반영 상태 표시
-      if (status === "published") setDeploySha(data.commitSha);
+      // 발행 글이 바뀌면 재배포가 일어난다 — refresh로 행이 사라져도 폴링이
+      // 유지되도록 대시보드 레벨 배너에 위임 (codex-review 반영)
+      if (status === "published") {
+        setPendingDeploy({
+          sha: data.commitSha,
+          label: `"${slug}" ${action === "unpublish" ? "발행취소" : "삭제"} 반영`,
+        });
+      }
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -84,7 +88,6 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
 
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      {deploySha && <DeployStatus key={deploySha} commitSha={deploySha} />}
       {error && (
         <span role="alert" className="max-w-48 truncate text-xs text-red-600" title={error}>
           {error}
