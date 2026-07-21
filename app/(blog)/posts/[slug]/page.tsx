@@ -2,6 +2,7 @@
 import { notFound } from "next/navigation";
 import { formatDate } from "@/components/blog/format-date";
 import { TagLink } from "@/components/blog/tag-link";
+import { ViewBeacon } from "@/components/blog/view-beacon";
 import { getPost, getPublishedPosts } from "@/lib/content";
 import { renderMdx } from "@/lib/mdx";
 
@@ -22,6 +23,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
   return (
     <article>
+      <ViewBeacon slug={post.slug} />
       <header className="mb-10">
         <time dateTime={post.date} className="text-sm text-zinc-500">
           {formatDate(post.date)}
