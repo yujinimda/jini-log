@@ -3,20 +3,21 @@
 ## R1. UI 부품 기반 — shadcn/ui
 
 - **Decision**: `npx shadcn init`으로 도입, 스타일 베이스는 무채색(zinc) — B1 톤과 일치. 필요한 컴포넌트만 추가: `command`(⌘K 검색), `dialog`, `sonner`(토스트), `table`, `button`, `input`. 코드가 `components/ui/`로 복사되는 방식이라 런타임 라이브러리 종속은 Radix 프리미티브뿐.
-- **Rationale**: 검색·다이얼로그·토스트가 스펙의 사용감 핵심인데 전부 검증된 부품이 있다. Tailwind v4와 공식 호환. 코드 소유라 베타·버전 리스크 없음.
+- **통합 단계 명시 (codex 검증 반영)**: 현재 `app/globals.css`는 `@import "tailwindcss";` 한 줄뿐 — shadcn init이 요구하는 **theme 토큰 계층(@theme·CSS 변수)과 `tw-animate-css`** 를 globals.css에 추가해야 command/dialog/sonner의 유틸리티가 실제로 동작한다. 파운데이션 태스크에 "shadcn 컴포넌트 1개 렌더 스모크"를 검증 항목으로 포함.
+- **Rationale**: 검색·다이얼로그·토스트가 스펙의 사용감 핵심인데 전부 검증된 부품이 있다. Tailwind v4와 공식 호환(단, 위 통합 단계 전제). 코드 소유라 베타·버전 리스크 없음.
 - **Alternatives**: Astryx(기각 — R9), Radix 직접 조립(shadcn이 그 조립을 해주는 것), Headless UI(Command 부품 없음).
 
-## R2. 폰트 self-host
+## R2. 폰트 self-host — 서체 통일, 파일은 포맷별 2벌 (codex 검증 반영)
 
-- **Decision**: `next/font/local` — `public/fonts/`가 아닌 앱 내 폰트 파일로 Pretendard Variable(본문)과 Noto Serif KR Variable(제목, 한글 서브셋 woff2)을 로드. CSS 변수(`--font-sans`, `--font-serif`)로 Tailwind 토큰에 연결. **OG 이미지도 같은 로컬 파일을 fs로 읽어 사용** — 001의 구글 폰트 런타임 fetch 의존(네트워크 실패 시 한글 폴백 깨짐)을 함께 해소.
-- **Rationale**: FR-010(톤 일관)과 SC-004(성능) 동시 충족 — next/font는 셀프호스트+preload+FOUT 방지를 자동 처리.
-- **Alternatives**: 구글 폰트 CDN(런타임 의존·성능 저하), @fontsource(next/font가 Next에선 표준).
+- **Decision**: **웹**은 `next/font/local`로 woff2(Pretendard Variable 본문, Noto Serif KR 한글 서브셋 제목)를 로드하고 CSS 변수(`--font-sans`, `--font-serif`)로 Tailwind 토큰에 연결. **OG 이미지는 같은 서체의 TTF/OTF 서브셋을 별도 자산**(`assets/fonts/og/`)으로 두고 fs로 읽는다 — ImageResponse(Satori)가 **woff2를 지원하지 않기 때문**에 "같은 파일 공유"는 불가능하고 "같은 서체, 포맷별 파일"로 통일한다. 001의 구글 폰트 런타임 fetch 의존은 이것으로 해소.
+- **Rationale**: FR-010(톤 일관)·SC-004(성능) + OG 오프라인 렌더. 파일 2벌의 drift는 "같은 서체·같은 서브셋 범위" 규칙으로 관리.
+- **Alternatives**: 웹도 TTF(전송량 손해), 빌드 시 woff2→TTF 변환 스텝(도구 추가 대비 이득 없음), 구글 폰트 CDN(기각 사유 동일).
 
-## R3. 검색 인덱스와 매칭
+## R3. 검색 인덱스와 매칭 (codex 검증 반영 — route handler 대신 빌드 산출 모듈)
 
-- **Decision**: `app/(blog)/search-index.json/route.ts`를 `force-static`으로 — 빌드 시 발행 글 전체에서 `{ slug, title, description, tags, excerpt(본문 마크다운 스트립 후 앞 500자) }` 배열 생성, 정적 파일로 서빙. 클라이언트 SearchCommand가 **첫 열림 시점에 lazy fetch + 메모리 캐시**(FR-004: 초기 로딩 영향 0). 매칭은 `lib/search.ts`의 소문자 포함 검색(제목 > 태그 > 설명 > 본문 순 가중 정렬).
-- **Rationale**: 서버·DB 없음(FR-004), 발행 글만 포함(FR-003 — drafts는 로더가 아예 안 읽음). 수백 글 × ~700B ≈ 수백 KB 이내, lazy라 무해.
-- **Alternatives**: Fuse.js(퍼지 — 스펙이 포함 매칭으로 한정, YAGNI), Algolia/pagefind(외부 서비스·빌드 스텝 추가 — 규모 대비 과함).
+- **Decision**: `scripts/generate-search-index.ts`가 `prebuild`/`predev`에서 발행 글 전체로 `generated/search-index.json`(`{ slug, title, description, tags, excerpt(마크다운 스트립 후 앞 500자) }[]`)을 생성. SearchCommand는 **첫 열림 시점에 `await import("@/generated/search-index.json")`** — 별도 청크로 lazy load(FR-004: 초기 로딩 영향 0, 네트워크 왕복도 없음). 매칭은 `lib/search.ts` 소문자 포함 검색(제목 > 태그 > 설명 > 본문 가중).
+- **Rationale**: `force-static` route segment config는 Next 16 Cache Components 도입 시 제거 대상이라 중장기 전제가 약함(codex 지적). 빌드 산출물 + dynamic import는 같은 특성을 프레임워크 의존 없이 달성. 발행 글만 포함(FR-003 — 생성기가 발행 로더만 사용). `generated/`는 gitignore.
+- **Alternatives**: force-static route(기각 — 위), Fuse.js(포함 매칭으로 충분, YAGNI), pagefind/Algolia(규모 대비 과함).
 
 ## R4. ⌘K Command 다이얼로그
 
@@ -24,17 +25,17 @@
 - **Rationale**: cmdk가 키보드 내비·접근성·필터 UX를 검증된 형태로 제공. 어드민 화면엔 마운트하지 않음(FR-001은 공개 화면 한정 — 에디터 단축키 충돌 회피).
 - **Alternatives**: 자체 모달 구현(키보드 UX 재발명), 검색 전용 페이지(사용감 체감이 목표라 다이얼로그가 우위).
 
-## R5. 목차(TOC)
+## R5. 목차(TOC) — slug 생성과 추출을 같은 AST 패스에서 (codex 검증 반영)
 
-- **Decision**: `lib/mdx-options.ts`에 `rehype-slug` 추가 — 제목에 앵커 id가 렌더·프리뷰·검증 모두에서 동일하게 붙는다(001 단일 진실 공급원 구조 준수). `lib/toc.ts`가 본문에서 h2/h3을 추출(remark 파싱 — mdx-options의 remark 플러그인 공유)해 `{ id, text, depth }[]` 생성. `components/blog/toc.tsx`: 데스크톱(≥1280px) 본문 우측 고정 + IntersectionObserver로 현재 절 하이라이트, 미만은 본문 상단 `<details>` 접이식. h2/h3 없으면 렌더 안 함.
-- **Rationale**: 앵커 id 생성을 파이프라인에 넣어야 프리뷰·발행 링크가 일치(FR-011). IntersectionObserver는 스크롤 리스너보다 저비용.
-- **Alternatives**: rehype-toc(마크업 주입 방식 — 레이아웃 제어 어려움), 클라이언트에서 DOM 파싱(SSR 불일치 위험).
+- **Decision**: `lib/mdx-options.ts`에 `rehype-slug` + **`rehypeCollectToc(collector)`**(rehype-slug 바로 다음에 실행, id가 붙은 h2/h3의 `{ id, text, depth }` 수집 — 001의 `remarkCollectComponentNames`와 같은 컬렉터 패턴)를 추가. `lib/toc.ts`는 이 공유 파이프라인으로 본문을 1회 컴파일해 TocEntry[]를 얻는 **래퍼일 뿐, 자체 slug 알고리즘을 재현하지 않는다**. `components/blog/toc.tsx`: ≥1280px 우측 고정 + IntersectionObserver 현재 절 하이라이트, 미만 `<details>` 접이식, 비면 미렌더.
+- **Rationale**: "같은 알고리즘 재현"은 단일 진실 공급원을 다시 쪼갠다(codex 지적) — 중복 제목·한글·인라인 마크업에서 id가 어긋나면 FR-008이 조용히 깨지고 기존 E2E는 못 잡는다. 같은 패스에서 수집하면 구조적으로 어긋날 수 없다.
+- **Alternatives**: 별도 remark 파싱으로 재현(기각 — 위), rehype-toc(마크업 주입 — 레이아웃 제어 어려움), 클라이언트 DOM 파싱(SSR 불일치).
 
-## R6. 읽기시간
+## R6. 파생값 일원화 — PostDerived (codex 제안 채택)
 
-- **Decision**: `lib/reading-time.ts` — 본문에서 코드펜스·frontmatter 제거 후 문자 수 ÷ 500자/분, 올림, 최소 1분 (grilling 확정). 빌드 시 목록 로더에서 계산해 카드에 전달.
-- **Rationale**: 한글은 단어 수(wpm) 기준이 부정확. 문자/분이 표준적 대안.
-- **Alternatives**: reading-time 패키지(영어 wpm 전제 — 부적합).
+- **Decision**: 읽기시간·검색 발췌 같은 본문 파생값을 각 소비처에서 따로 계산하지 않고, `lib/content.ts`의 발행 로더가 **`PostDerived`(= PostMeta + `readingMinutes` + `excerpt`)** 를 한 곳에서 계산해 반환한다. 홈 카드·검색 인덱스 생성기·글 상세가 전부 이것을 소비. 읽기시간 = 코드펜스 제거 후 문자 수 ÷ 500자/분 올림, 최소 1분 (grilling 확정). TOC만 예외적으로 상세 렌더 시점에 공유 파이프라인(R5)에서 추출(본문 전체 필요).
+- **Rationale**: 001의 "공유 파이프라인" 철학 유지 — 파생 계산이 흩어지면 drift 면적이 넓어진다(codex 지적). 테스트도 로더 1곳만 검증하면 된다.
+- **Alternatives**: 소비처별 개별 계산(기각 — 위), reading-time 패키지(영어 wpm 전제 — 부적합).
 
 ## R7. B1 토큰과 콘텐츠 컴포넌트
 
@@ -44,7 +45,8 @@
 ## R8. 어드민 부품 교체
 
 - **Decision**: `window.confirm()` 3지점(post-row-actions의 발행취소·삭제, post-editor의 overwrite)을 shadcn Dialog로, 결과 통지를 sonner Toast로(루트 admin 레이아웃에 Toaster), 대시보드 테이블을 shadcn Table + 클라이언트 정렬(제목·발행일·조회수 토글)로 교체. API·플로우 로직은 변경 없음 — 표현 계층만.
-- **Rationale**: FR-012~014. 로직 무변경이라 기존 API 테스트는 그대로 유효, E2E 셀렉터만 영향.
+- **Toast 범위 명시 (codex 검증 반영)**: `save-draft`·`publish`·`unpublish`·`delete`·이미지 업로드의 **성공·실패 전부** toast. 기존 인라인 상태 텍스트는 제거하되, **422 invalid-mdx의 행·열 오류 목록만 에디터 인라인 유지**(수정 위치 안내는 toast로 불가능한 정보 — toast는 요약만).
+- **Rationale**: FR-012~014. "모든 액션" 요구를 구현자 해석에 맡기지 않음. 로직 무변경이라 기존 API 테스트는 그대로 유효, E2E 셀렉터만 영향.
 
 ## R9. Astryx 기각 (직전 결정 번복 기록)
 

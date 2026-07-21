@@ -57,9 +57,10 @@ app/
 │   ├── page.tsx              # [수정] 새 글 카드(요약·날짜·읽기시간·태그)
 │   ├── tags/page.tsx         # [신규] 태그 인덱스 (전체 태그+글 수)
 │   ├── posts/[slug]/page.tsx # [수정] 세리프 제목·메타·TOC·이전/다음
-│   └── search-index.json/route.ts  # [신규] force-static 검색 인덱스
+│   └── (검색 인덱스는 route가 아니라 빌드 산출물 — 아래 generated/)
 ├── admin/**                  # [수정] shadcn 부품 적용 (구조 변경 없음)
-└── layout.tsx                # [수정] next/font/local 폰트 로딩
+├── globals.css               # [수정] shadcn theme 토큰 계층 + tw-animate-css (codex 반영)
+└── layout.tsx                # [수정] next/font/local 폰트 로딩(woff2)
 
 components/
 ├── ui/                       # [신규] shadcn 컴포넌트 (button·dialog·command·table·sonner 등)
@@ -73,12 +74,19 @@ components/
 └── mdx/callout.tsx           # [수정] 톤다운 파스텔 재조정 (grilling 확정 예외)
 
 lib/
-├── reading-time.ts           # [신규] 한글 500자/분 (코드블록 제외)
-├── toc.ts                    # [신규] 본문에서 h2/h3 추출 (mdx-options 파이프라인 공유)
-├── search.ts                 # [신규] 인덱스 생성(발행 글만) + 클라이언트 매칭 함수
-└── mdx-options.ts            # [수정] rehype-slug 추가 (제목 앵커 — 렌더·프리뷰·검증 공유)
+├── content.ts                # [수정] PostDerived(readingMinutes·excerpt) 파생 일원화 (R6)
+├── toc.ts                    # [신규] 공유 파이프라인 실행 래퍼 — 자체 slug 재현 금지 (R5)
+├── search.ts                 # [신규] 클라이언트 매칭 함수 (순수)
+└── mdx-options.ts            # [수정] rehype-slug + rehypeCollectToc (같은 AST 패스, R5)
 
-public/fonts/                 # [신규] PretendardVariable.woff2, NotoSerifKR(서브셋).woff2
+scripts/
+└── generate-search-index.ts  # [신규] prebuild/predev → generated/search-index.json (R3)
+
+generated/                    # [신규] 빌드 산출물 (gitignore)
+
+public 외 폰트 자산:
+├── (next/font/local용) woff2 — Pretendard Variable·Noto Serif KR 서브셋
+└── assets/fonts/og/          # [신규] OG용 TTF/OTF 서브셋 — Satori는 woff2 미지원 (R2)
 ```
 
 **Structure Decision**: 001 구조 유지 — 새 파일은 기존 소유권 경계(blog/·admin/·lib/·mdx/)를 따른다. `components/ui/`(shadcn 생성물)가 유일한 새 경계: 파운데이션이 소유하고 다른 영역은 사용만.
