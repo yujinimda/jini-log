@@ -4,6 +4,7 @@
 // sha는 액션 직전에 단건 조회로 얻는다 (낙관적 잠금 — 목록 응답에는 sha가 없다).
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import type { PostActionResponse, PostStatus } from "@/lib/types";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { setPendingDeploy } from "@/components/admin/dashboard/deploy-banner";
@@ -11,10 +12,11 @@ import { readApiError } from "@/components/admin/editor/types";
 
 type ActionKind = "unpublish" | "delete";
 
+const ACTION_LABEL: Record<ActionKind, string> = { unpublish: "발행취소", delete: "삭제" };
+
 export function PostRowActions({ slug, status }: { slug: string; status: PostStatus }) {
   const router = useRouter();
   const [busy, setBusy] = useState<ActionKind | null>(null);
-  const [error, setError] = useState<string | null>(null);
   /** 어떤 액션의 확인 다이얼로그가 열려 있는지 (T021 — 브라우저 confirm 팝업 대체) */
   const [confirming, setConfirming] = useState<ActionKind | null>(null);
   /** 발행취소 시 같은 slug 초안 존재(409 slug-exists) → 덮어쓰기 확인 다이얼로그 */
@@ -25,7 +27,6 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
 
   async function run(action: ActionKind, overwrite = false) {
     setBusy(action);
-    setError(null);
     try {
       // 낙관적 잠금용 현재 sha 조회
       const single = await fetch(`/api/admin/posts/${slug}?status=${status}`);
@@ -62,9 +63,15 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
           label: `"${slug}" ${action === "unpublish" ? "발행취소" : "삭제"} 반영`,
         });
       }
+      toast.success(
+        action === "unpublish"
+          ? `"${slug}" 발행을 취소했습니다 — 초안으로 이동했습니다`
+          : `"${slug}" 글을 삭제했습니다`,
+      );
       router.refresh();
     } catch (err) {
-      setError((err as Error).message);
+      // 실패 토스트에 사유(message) 포함 — 화면 상태는 오염하지 않는다 (FR-013)
+      toast.error(`${ACTION_LABEL[action]} 실패`, { description: (err as Error).message });
       router.refresh();
     } finally {
       setBusy(null);
@@ -73,11 +80,6 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
 
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      {error && (
-        <span role="alert" className="max-w-48 truncate text-xs text-red-600" title={error}>
-          {error}
-        </span>
-      )}
       {status === "published" && (
         <button
           onClick={() => setConfirming("unpublish")}

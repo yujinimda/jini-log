@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
+import { toast } from "sonner";
 import type { PostActionResponse, PostStatus } from "@/lib/types";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { setPendingDeploy } from "@/components/admin/dashboard/deploy-banner";
@@ -20,6 +21,20 @@ import {
   type ApiErrorInfo,
   type FrontmatterForm,
 } from "./types";
+
+/** 실패 toast 요약 문구 — 인라인 배너와 같은 분류 (T022) */
+function errorSummary(code: string): string {
+  switch (code) {
+    case "invalid-mdx":
+      return "본문 검증 실패 — 커밋되지 않았습니다";
+    case "invalid-frontmatter":
+      return "메타데이터 검증 실패 — 커밋되지 않았습니다";
+    case "stale-sha":
+      return "다른 곳에서 변경됨";
+    default:
+      return `저장 실패 (${code})`;
+  }
+}
 
 export interface PostEditorProps {
   /** 기존 글 편집 시 대상 slug (없으면 새 글) */
@@ -51,10 +66,21 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
 
   // 이미지 붙여넣기/드래그 업로드 (T026) — slug는 ref로 읽어 확장을 재생성하지 않는다
   const slugRef = useRef(slug);
-  slugRef.current = slug;
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  useEffect(() => {
+    slugRef.current = slug;
+  }, [slug]);
+  // 업로드 성공·실패 통지는 toast (T022) — 인라인 배너 제거
   const extensions = useMemo(
-    () => [markdown(), imageUploadExtension(() => slugRef.current, setUploadError)],
+    () => [
+      markdown(),
+      imageUploadExtension(
+        // 게터는 paste/drop "이벤트 시점"에만 ref를 읽는다 — 렌더 중 접근 아님 (규칙 오탐)
+        // eslint-disable-next-line react-hooks/refs
+        () => slugRef.current,
+        (message) => toast.error(message),
+        (message) => toast.success(message),
+      ),
+    ],
     [],
   );
 
@@ -75,7 +101,6 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     action: "save-draft" | "publish";
     message: string;
   } | null>(null);
-  const [lastCommit, setLastCommit] = useState<{ url: string; action: string } | null>(null);
   const router = useRouter();
 
   async function runAction(action: "save-draft" | "publish", overwrite = false) {
@@ -104,10 +129,8 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     } catch {
       // 네트워크 실패 — 작성 내용은 localStorage 백업에 남아 있다 (SC-006)
       setSaving(null);
-      setActionError({
-        status: 0,
-        code: "network-error",
-        message: "저장 요청이 실패했습니다 (네트워크). 작성 내용은 브라우저에 백업되어 있습니다.",
+      toast.error("저장 요청이 실패했습니다 (네트워크)", {
+        description: "작성 내용은 브라우저에 백업되어 있습니다.",
       });
       return;
     }
@@ -124,6 +147,8 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
         setIsStale(true); // 재로드 유도
       }
       setActionError(err);
+      // 실패 toast — 요약 + 사유. 422의 행·열 오류 목록은 에디터 인라인 유지 (계약)
+      toast.error(errorSummary(err.code), { description: err.message });
       return;
     }
 
@@ -133,13 +158,19 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     // 발행 완료 → 대시보드로 이동, 반영 상태는 대시보드 배너가 이어서 폴링 (사용자 피드백 반영)
     if (action === "publish") {
       setPendingDeploy({ sha: data.commitSha, label: `"${trimmedSlug}" 발행 반영` });
+      // Toaster가 admin 레이아웃에 있어 대시보드 이동 후에도 toast가 유지된다 (T022)
+      toast.success(`"${trimmedSlug}" 글을 발행했습니다`, {
+        action: { label: "커밋 보기", onClick: () => window.open(data.commitUrl, "_blank") },
+      });
       router.push("/admin");
       return;
     }
 
     setStatus("draft");
     setOriginalSlug(trimmedSlug);
-    setLastCommit({ url: data.commitUrl, action });
+    toast.success(`"${trimmedSlug}" 초안을 저장했습니다`, {
+      action: { label: "커밋 보기", onClick: () => window.open(data.commitUrl, "_blank") },
+    });
 
     // URL을 저장된 글 기준으로 동기화 — 새로고침해도 같은 글 편집이 이어진다
     window.history.replaceState(null, "", `/admin/write?slug=${trimmedSlug}&status=draft`);
@@ -240,16 +271,6 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
             {status === "new" ? "새 글 작성" : `편집: ${originalSlug ?? slug} (${status === "published" ? "발행됨" : "초안"})`}
           </h1>
           <div className="flex items-center gap-3">
-            {lastCommit && (
-              <a
-                href={lastCommit.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-zinc-500 underline"
-              >
-                {lastCommit.action === "publish" ? "발행 커밋" : "저장 커밋"} 보기
-              </a>
-            )}
             {status !== "published" && (
               <button
                 onClick={() => runAction("save-draft")}
@@ -271,18 +292,13 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
             </a>
           </div>
         </div>
-        {actionError && (
+        {/* 실패 통지는 toast (T022) — 인라인은 422 행·열/필드 오류 목록과 stale 재로드 유도만 유지 (계약 예외) */}
+        {actionError && (errorDetails.length > 0 || isStale) && (
           <div
             role="alert"
             className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
           >
-            <p className="font-medium">
-              {actionError.code === "invalid-mdx" && "본문 검증 실패 — 커밋되지 않았습니다"}
-              {actionError.code === "invalid-frontmatter" && "메타데이터 검증 실패 — 커밋되지 않았습니다"}
-              {actionError.code === "stale-sha" && "다른 곳에서 변경됨"}
-              {!["invalid-mdx", "invalid-frontmatter", "stale-sha"].includes(actionError.code) &&
-                `저장 실패 (${actionError.code})`}
-            </p>
+            <p className="font-medium">{errorSummary(actionError.code)}</p>
             <p className="mt-0.5">{actionError.message}</p>
             {errorDetails.length > 0 && (
               <ul className="mt-1 list-disc pl-5 text-xs">
@@ -336,17 +352,6 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
 
       <main className="flex min-h-0 flex-1">
         <section className="min-w-0 flex-1 border-r border-zinc-200" aria-label="마크다운 편집">
-          {uploadError && (
-            <p
-              role="alert"
-              className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700"
-            >
-              <span>{uploadError}</span>
-              <button onClick={() => setUploadError(null)} className="shrink-0 underline">
-                닫기
-              </button>
-            </p>
-          )}
           <CodeMirror
             value={body}
             onChange={setBody}
