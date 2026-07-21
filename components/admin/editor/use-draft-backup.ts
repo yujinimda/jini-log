@@ -36,18 +36,22 @@ export function useDraftBackup(params: {
   useEffect(() => {
     if (!ready || checked.current) return;
     checked.current = true;
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const backup = JSON.parse(raw) as DraftBackup;
-      // 현재 내용과 같으면 복원할 것이 없다
-      if (backup.body === body && JSON.stringify(backup.form) === JSON.stringify(form)) {
-        return;
+    // 외부 시스템(localStorage) 조회 후 콜백에서 상태 반영 (동기 setState 회피)
+    const t = setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const backup = JSON.parse(raw) as DraftBackup;
+        // 현재 내용과 같으면 복원할 것이 없다
+        if (backup.body === body && JSON.stringify(backup.form) === JSON.stringify(form)) {
+          return;
+        }
+        setPending(backup);
+      } catch {
+        // 손상된 백업은 무시
       }
-      setPending(backup);
-    } catch {
-      // 손상된 백업은 무시
-    }
+    }, 0);
+    return () => clearTimeout(t);
   }, [ready, key, body, form]);
 
   // 입력 변경마다 디바운스 백업 (1초)

@@ -4,12 +4,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
-import type { PostStatus } from "@/lib/types";
+import type { PostActionResponse, PostStatus } from "@/lib/types";
+import { DeployStatus } from "./deploy-status";
 import { FrontmatterFields } from "./frontmatter-form";
 import { imageUploadExtension } from "./image-upload";
 import { Preview } from "./preview";
 import { useDraftBackup } from "./use-draft-backup";
-import { emptyForm, fromFrontmatter, readApiError, toFrontmatter, type FrontmatterForm } from "./types";
+import {
+  emptyForm,
+  fromFrontmatter,
+  readApiError,
+  toFrontmatter,
+  type ApiErrorInfo,
+  type FrontmatterForm,
+} from "./types";
 
 export interface PostEditorProps {
   /** 기존 글 편집 시 대상 slug (없으면 새 글) */
@@ -55,6 +63,90 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     if (status !== "published") setSlug(backup.pending.slug);
     backup.dismissPending();
   };
+
+  // ── 저장/발행 플로우 (T027) ──────────────────────────────────────────────
+  const [saving, setSaving] = useState<"save-draft" | "publish" | null>(null);
+  const [actionError, setActionError] = useState<ApiErrorInfo | null>(null);
+  const [isStale, setIsStale] = useState(false);
+  const [lastCommit, setLastCommit] = useState<{ url: string; action: string } | null>(null);
+  /** 발행 커밋 sha — 배포 상태 폴링 대상 (R10) */
+  const [deploySha, setDeploySha] = useState<string | null>(null);
+
+  async function runAction(action: "save-draft" | "publish", overwrite = false) {
+    const trimmedSlug = slug.trim();
+    setSaving(action);
+    setActionError(null);
+    setIsStale(false);
+
+    let res: Response;
+    try {
+      res = await fetch("/api/admin/posts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          slug: trimmedSlug,
+          originalSlug,
+          frontmatter,
+          body,
+          sha,
+          ...(overwrite ? { overwrite: true } : {}),
+        }),
+      });
+    } catch {
+      // 네트워크 실패 — 작성 내용은 localStorage 백업에 남아 있다 (SC-006)
+      setSaving(null);
+      setActionError({
+        status: 0,
+        code: "network-error",
+        message: "저장 요청이 실패했습니다 (네트워크). 작성 내용은 브라우저에 백업되어 있습니다.",
+      });
+      return;
+    }
+    setSaving(null);
+
+    if (!res.ok) {
+      const err = await readApiError(res);
+      if (err.status === 409 && err.code === "slug-exists") {
+        // 덮어쓰기 확인 (409 slug-exists → overwrite 재시도)
+        if (window.confirm(`${err.message}\n\n기존 파일을 덮어쓸까요?`)) {
+          return runAction(action, true);
+        }
+        return;
+      }
+      if (err.status === 409 && err.code === "stale-sha") {
+        setIsStale(true); // 재로드 유도
+      }
+      setActionError(err);
+      return;
+    }
+
+    const data = (await res.json()) as PostActionResponse;
+    backup.clearBackup();
+    setStatus(data.status === "published" ? "published" : "draft");
+    setOriginalSlug(trimmedSlug);
+    setLastCommit({ url: data.commitUrl, action });
+    // 발행은 재배포를 유발한다 — 반영 상태 폴링 시작. 초안은 빌드 대상이 아니다.
+    setDeploySha(action === "publish" ? data.commitSha : null);
+
+    // 다음 수정 커밋을 위한 새 파일 sha 재조회 (응답 계약에는 파일 sha가 없다)
+    try {
+      const statusQuery = data.status === "published" ? "published" : "draft";
+      const single = await fetch(`/api/admin/posts/${trimmedSlug}?status=${statusQuery}`);
+      if (single.ok) {
+        const { sha: newSha } = (await single.json()) as { sha: string };
+        setSha(newSha);
+      }
+    } catch {
+      // sha 재조회 실패 시 다음 저장에서 stale-sha로 드러난다 — 치명적이지 않음
+    }
+  }
+
+  /** 422 invalid-mdx의 detail([{message, line, column}]) → 오류 위치 목록 */
+  const errorDetails: { message: string; line?: number; column?: number; field?: string }[] =
+    Array.isArray(actionError?.detail)
+      ? (actionError.detail as { message: string; line?: number; column?: number; field?: string }[])
+      : [];
 
   // 기존 글 로드 — GitHub 최신본 + sha (편집 시작)
   useEffect(() => {
@@ -129,14 +221,80 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
         </div>
       )}
       <header className="border-b border-zinc-200 px-4 py-3">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-sm font-semibold text-zinc-700">
             {status === "new" ? "새 글 작성" : `편집: ${originalSlug ?? slug} (${status === "published" ? "발행됨" : "초안"})`}
           </h1>
-          <a href="/admin" className="text-xs text-zinc-500 underline">
-            대시보드
-          </a>
+          <div className="flex items-center gap-3">
+            {lastCommit && (
+              <a
+                href={lastCommit.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-zinc-500 underline"
+              >
+                {lastCommit.action === "publish" ? "발행 커밋" : "저장 커밋"} 보기
+              </a>
+            )}
+            {deploySha && <DeployStatus key={deploySha} commitSha={deploySha} />}
+            {status !== "published" && (
+              <button
+                onClick={() => runAction("save-draft")}
+                disabled={saving !== null}
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                {saving === "save-draft" ? "저장 중..." : "초안 저장"}
+              </button>
+            )}
+            <button
+              onClick={() => runAction("publish")}
+              disabled={saving !== null}
+              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            >
+              {saving === "publish" ? "발행 중..." : status === "published" ? "재발행" : "발행"}
+            </button>
+            <a href="/admin" className="text-xs text-zinc-500 underline">
+              대시보드
+            </a>
+          </div>
         </div>
+        {actionError && (
+          <div
+            role="alert"
+            className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          >
+            <p className="font-medium">
+              {actionError.code === "invalid-mdx" && "본문 검증 실패 — 커밋되지 않았습니다"}
+              {actionError.code === "invalid-frontmatter" && "메타데이터 검증 실패 — 커밋되지 않았습니다"}
+              {actionError.code === "stale-sha" && "다른 곳에서 변경됨"}
+              {!["invalid-mdx", "invalid-frontmatter", "stale-sha"].includes(actionError.code) &&
+                `저장 실패 (${actionError.code})`}
+            </p>
+            <p className="mt-0.5">{actionError.message}</p>
+            {errorDetails.length > 0 && (
+              <ul className="mt-1 list-disc pl-5 text-xs">
+                {errorDetails.map((e, i) => (
+                  <li key={i}>
+                    {e.line !== undefined
+                      ? `${e.line}행${e.column !== undefined ? ` ${e.column}열` : ""}: `
+                      : e.field
+                        ? `${e.field}: `
+                        : ""}
+                    {e.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {isStale && (
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white"
+              >
+                최신 내용 다시 불러오기 (현재 내용은 백업됨)
+              </button>
+            )}
+          </div>
+        )}
         <FrontmatterFields
           form={form}
           onChange={setForm}

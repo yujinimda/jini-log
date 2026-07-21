@@ -107,8 +107,10 @@ export function Preview({
 
   useEffect(() => {
     const seq = ++verdictSeq.current;
-    setVerdict({ state: "checking" });
     (async () => {
+      await Promise.resolve(); // 동기 setState 회피 — 커밋 후 비동기로 반영
+      if (seq !== verdictSeq.current) return;
+      setVerdict({ state: "checking" });
       try {
         const res = await fetch("/api/admin/validate", {
           method: "POST",
