@@ -10,6 +10,17 @@ export interface PostMeta extends PostFrontmatter {
   status: PostStatus;
 }
 
+/**
+ * 본문 파생값 포함 발행 글 (002 R6) — 파생 계산은 lib/content.ts 로더 1곳뿐.
+ * 홈 카드·검색 인덱스 생성기·글 상세가 공유한다. PostMeta 소비자는 그대로 동작(확장 형태).
+ */
+export interface PostDerived extends PostMeta {
+  /** ceil(코드펜스 제거 후 문자 수 / 500), 최소 1분 */
+  readingMinutes: number;
+  /** 마크다운·컴포넌트 태그 스트립 후 앞 500자 */
+  excerpt: string;
+}
+
 /** 형식 오류가 있는 초안 — 목록에 오류로 표시하되 사이트 동작에는 영향 없음 (FR-014) */
 export interface InvalidDraft {
   slug: string;
