@@ -23,3 +23,10 @@ as $$
   on conflict (slug, view_date)
   do update set count = page_views.count + 1;
 $$;
+
+-- security definer 함수는 기본이 PUBLIC 실행 가능 — anon 키로 조회수 조작이 가능해지므로
+-- 서버(service_role) 외 전부 회수한다 (codex-review 반영)
+revoke execute on function increment_view(text) from public;
+revoke execute on function increment_view(text) from anon;
+revoke execute on function increment_view(text) from authenticated;
+grant execute on function increment_view(text) to service_role;

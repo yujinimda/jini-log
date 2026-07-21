@@ -1,9 +1,10 @@
 // /admin·/api/admin 전체 보호 (FR-008). 소유: 레인 A
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, isOperatorSession, type SessionWithLogin } from "@/lib/auth";
 
 export default auth((req) => {
-  if (req.auth) return;
+  // 세션 존재가 아니라 "현재 운영자인가"로 판정 (codex-review 반영)
+  if (isOperatorSession(req.auth as SessionWithLogin | null)) return;
 
   if (req.nextUrl.pathname.startsWith("/api/admin")) {
     return NextResponse.json(
