@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "codex-review": {
+      "source": "shimo4228/codex-review",
+      "sourceType": "github",
+      "skillPath": "skills/codex-review/SKILL.md",
+      "computedHash": "89692c074761c31d4c95192c27f2fa87464f1436f291a6de7be06f6ed9caec42"
+    },
     "grill-me": {
       "source": "mattpocock/skills",
       "sourceType": "github",
