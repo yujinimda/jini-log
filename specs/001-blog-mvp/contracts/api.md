@@ -63,7 +63,7 @@
 
 ## POST /api/admin/images — 이미지 업로드
 
-- 요청: `{ slug: string, filename: string, data: string(base64) }` — 최대 4MB, 허용 형식 png/jpg/jpeg/gif/webp (**SVG 제외** — R8, 매직 바이트 검증)
+- 요청: `{ slug: string, filename: string, data: string(base64) }` — 원본 최대 3MB(base64 ×1.33 팽창 후에도 Vercel 요청 한도 4.5MB 내 — 구현 리뷰 반영), 허용 형식 png/jpg/jpeg/gif/webp (**SVG 제외** — R8, 매직 바이트 검증)
 - 처리: `public/images/{slug}/{filename}` 커밋. 파일명 충돌 시 `-1`, `-2` 접미사 자동 부여.
 - 응답: `{ ok: true, path: "/images/{slug}/{filename}" }` — 에디터가 본문에 `![](path)` 삽입
 - 실패: `400 invalid-image` (형식·크기), `502 github-error`

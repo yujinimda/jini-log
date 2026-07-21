@@ -185,11 +185,11 @@ describeRoute("POST /api/admin/images", () => {
     expect(json.error.code).toBe("invalid-image");
   });
 
-  it("4MB 초과 데이터는 invalid-image로 거부한다", async () => {
-    // contracts/api.md images: 최대 4MB
+  it("3MB 초과 데이터는 invalid-image로 거부한다", async () => {
+    // contracts/api.md images: 원본 최대 3MB (base64 팽창 고려 — 계약 v2)
     const oversized = Buffer.concat([
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-      Buffer.alloc(4 * 1024 * 1024 + 1),
+      Buffer.alloc(3 * 1024 * 1024 + 1),
     ]).toString("base64");
 
     const response = await callPost({

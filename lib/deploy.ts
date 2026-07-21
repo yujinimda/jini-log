@@ -36,7 +36,8 @@ export async function getDeployStatus(commitSha: string): Promise<DeployState> {
 
   const url = new URL(`${VERCEL_API}/v6/deployments`);
   url.searchParams.set("projectId", projectId);
-  url.searchParams.set("sha", commitSha);
+  // "sha"는 커밋 필터가 아니다 — GitHub 커밋은 배포 메타데이터의 githubCommitSha로 필터 (codex-review 반영)
+  url.searchParams.set("meta-githubCommitSha", commitSha);
   url.searchParams.set("limit", "1");
   if (process.env.VERCEL_TEAM_ID) {
     url.searchParams.set("teamId", process.env.VERCEL_TEAM_ID);
