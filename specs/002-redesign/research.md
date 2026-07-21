@@ -55,3 +55,5 @@
 - **Alternatives considered**: 어드민만 Astryx(스타일 체계 이원화 — 기각), 전체 Astryx(위 사유로 기각).
 
 모든 NEEDS CLARIFICATION 없음.
+
+> 코덱스 크로스 검증 (2026-07-21): 1라운드 BLOCKED 2건(OG woff2 전제 오류, TOC slug 재현) → 문서 교정. 2라운드는 "구현 파일 부재"를 사유로 STILL-BLOCKED 판정했으나 이는 plan 단계 특성(구현은 다음 단계)이므로 **plan 게이트 실질 통과로 해석, 핑퐁 2회 컷**. 단 이 두 항목은 구현 단계 codex-review에서 코드로 재검증할 것 — R2(OG TTF/OTF 자산 존재·런타임 fetch 제거)와 R5(rehypeCollectToc 동일 패스)가 검증 포인트.
