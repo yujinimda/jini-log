@@ -101,6 +101,10 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     action: "save-draft" | "publish";
     message: string;
   } | null>(null);
+  /** 마지막 저장 시각 — 액션바에 상시 표시 (T024) */
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  /** 프리뷰 패널 토글 (T024) — md 미만에서는 원래 숨김이라 md+에서만 의미 있음 */
+  const [showPreview, setShowPreview] = useState(true);
   const router = useRouter();
 
   async function runAction(action: "save-draft" | "publish", overwrite = false) {
@@ -168,6 +172,7 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
 
     setStatus("draft");
     setOriginalSlug(trimmedSlug);
+    setLastSavedAt(new Date());
     toast.success(`"${trimmedSlug}" 초안을 저장했습니다`, {
       action: { label: "커밋 보기", onClick: () => window.open(data.commitUrl, "_blank") },
     });
@@ -265,33 +270,54 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
           </span>
         </div>
       )}
-      <header className="border-b border-zinc-200 px-4 py-3">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      {/* 상단 액션바 — sticky 고정 + 마지막 저장 시각 상시 표시 + 프리뷰 토글 (T024) */}
+      <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-white/95 px-4 py-2 backdrop-blur">
+        <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-zinc-700">
             {status === "new" ? "새 글 작성" : `편집: ${originalSlug ?? slug} (${status === "published" ? "발행됨" : "초안"})`}
           </h1>
-          <div className="flex items-center gap-3">
-            {status !== "published" && (
-              <button
-                onClick={() => runAction("save-draft")}
-                disabled={saving !== null}
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-              >
-                {saving === "save-draft" ? "저장 중..." : "초안 저장"}
-              </button>
-            )}
-            <button
-              onClick={() => runAction("publish")}
-              disabled={saving !== null}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-            >
-              {saving === "publish" ? "발행 중..." : status === "published" ? "재발행" : "발행"}
-            </button>
-            <a href="/admin" className="text-xs text-zinc-500 underline">
-              대시보드
-            </a>
-          </div>
+          <span className="text-xs whitespace-nowrap text-zinc-400">
+            마지막 저장{" "}
+            {lastSavedAt
+              ? lastSavedAt.toLocaleTimeString("ko-KR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })
+              : "—"}
+          </span>
         </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowPreview((v) => !v)}
+            aria-pressed={showPreview}
+            className="hidden rounded-md border border-zinc-200 px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 md:block"
+          >
+            {showPreview ? "프리뷰 숨기기" : "프리뷰 표시"}
+          </button>
+          {status !== "published" && (
+            <button
+              onClick={() => runAction("save-draft")}
+              disabled={saving !== null}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              {saving === "save-draft" ? "저장 중..." : "초안 저장"}
+            </button>
+          )}
+          <button
+            onClick={() => runAction("publish")}
+            disabled={saving !== null}
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {saving === "publish" ? "발행 중..." : status === "published" ? "재발행" : "발행"}
+          </button>
+          <a href="/admin" className="text-xs text-zinc-500 underline">
+            대시보드
+          </a>
+        </div>
+      </div>
+
+      <header className="border-b border-zinc-200 px-4 py-3">
         {/* 실패 통지는 toast (T022) — 인라인은 422 행·열/필드 오류 목록과 stale 재로드 유도만 유지 (계약 예외) */}
         {actionError && (errorDetails.length > 0 || isStale) && (
           <div
@@ -361,9 +387,11 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
             placeholder="마크다운 + 등록된 컴포넌트(<Callout>, <Collapse>)로 본문을 작성하세요. 이미지는 붙여넣기/드래그로 업로드됩니다."
           />
         </section>
-        <section className="hidden min-w-0 flex-1 md:block" aria-label="프리뷰">
-          <Preview frontmatter={frontmatter} body={body} />
-        </section>
+        {showPreview && (
+          <section className="hidden min-w-0 flex-1 md:block" aria-label="프리뷰">
+            <Preview frontmatter={frontmatter} body={body} />
+          </section>
+        )}
       </main>
     </div>
   );
