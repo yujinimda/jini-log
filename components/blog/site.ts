@@ -19,3 +19,10 @@ export function postUrl(slug: string): string {
 export function tagUrl(tag: string): string {
   return `${siteUrl()}/tags/${encodeURIComponent(tag)}`;
 }
+
+/**
+ * RSS 자동 발견 링크 — Next 메타데이터 병합은 최상위 키 단위 얕은 병합이라
+ * 페이지가 alternates(canonical)를 정의하면 레이아웃의 types가 사라진다.
+ * 페이지마다 alternates.types에 이 값을 함께 넣는다.
+ */
+export const RSS_ALTERNATE = { "application/rss+xml": "/feed.xml" };

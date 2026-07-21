@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { formatDate } from "@/components/blog/format-date";
-import { postUrl, siteName } from "@/components/blog/site";
+import { postUrl, RSS_ALTERNATE, siteName } from "@/components/blog/site";
 import { TagLink } from "@/components/blog/tag-link";
 import { ViewBeacon } from "@/components/blog/view-beacon";
 import { getPost, getPublishedPosts } from "@/lib/content";
@@ -30,7 +30,7 @@ export async function generateMetadata({
   return {
     title: post.title,
     description: post.description,
-    alternates: { canonical: url },
+    alternates: { canonical: url, types: RSS_ALTERNATE },
     openGraph: {
       type: "article",
       title: post.title,
@@ -56,8 +56,29 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
   const content = await renderMdx(post.body);
 
+  // T039: JSON-LD(Article) — 검색엔진 구조화 데이터
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.description,
+    datePublished: post.date,
+    author: {
+      "@type": "Person",
+      name: process.env.ADMIN_GITHUB_LOGIN ?? siteName(),
+    },
+    mainEntityOfPage: postUrl(post.slug),
+    keywords: post.tags,
+    inLanguage: "ko",
+  };
+
   return (
     <article>
+      <script
+        type="application/ld+json"
+        // JSON 내 "<" 이스케이프 — script 조기 종료 방지
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
       <ViewBeacon slug={post.slug} />
       <header className="mb-10">
         <time dateTime={post.date} className="text-sm text-zinc-500">

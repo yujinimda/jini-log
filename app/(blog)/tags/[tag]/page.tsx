@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostList } from "@/components/blog/post-list";
-import { siteName, tagUrl } from "@/components/blog/site";
+import { RSS_ALTERNATE, siteName, tagUrl } from "@/components/blog/site";
 import { getAllTags, getPublishedPosts } from "@/lib/content";
 
 /** 빌드 시점에 존재하는 태그만 — 그 외는 404 */
@@ -26,7 +26,7 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: { canonical: tagUrl(tag) },
+    alternates: { canonical: tagUrl(tag), types: RSS_ALTERNATE },
     openGraph: {
       type: "website",
       title,
