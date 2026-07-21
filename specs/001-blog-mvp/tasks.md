@@ -12,17 +12,24 @@
 
 | 레인 | 담당 | 소유 파일(다른 레인은 참조만) |
 | --- | --- | --- |
-| **A (foundation)** | Phase 1~2 전체 | `lib/types.ts`, `lib/content-schema.ts`, `lib/mdx-options.ts`, `lib/mdx.ts`, `lib/content.ts`, `lib/views.ts`, `lib/auth.ts`, `middleware.ts`, `components/mdx/**` (레지스트리+기본 컴포넌트) |
+| **A (foundation)** | Phase 1~2 전체 | `lib/types.ts`, `lib/content-schema.ts`, `lib/mdx-options.ts`, `lib/mdx.ts`, `lib/content.ts`, `lib/views.ts`, `lib/auth.ts`, `middleware.ts`, `app/api/auth/**`, `components/mdx/**`, **테스트 인프라**(`vitest.config.ts`, `playwright.config.ts`, `tests/mocks/**`, `tests/e2e/helpers/**`) |
 | **B (blog)** | 공개 페이지 + SEO (US2, US3) | `app/(blog)/**`, `app/sitemap.ts`, `app/robots.ts`, `app/opengraph-image.tsx`, `components/blog/**`, `app/api/views/**` |
 | **C (admin)** | 에디터·발행·대시보드 (US1, US4) | `app/admin/**`, `app/api/admin/**`, `components/admin/**`, `lib/github.ts`, `lib/deploy.ts` |
-| **D (test)** | 전 스토리 테스트 (코덱스 작성 → 클코 통과) | `tests/**` |
+| **D (test)** | 전 스토리 테스트 (코덱스 작성 → 클코 통과) | **테스트 스펙 파일만**: `tests/unit/**`, `tests/api/**`, `tests/e2e/*.spec.ts` (인프라·mocks·helpers는 A 소유) |
 
-**공유 지점 규칙**: `lib/`·`components/mdx/`의 공유 파일 변경이 필요하면 B·C 레인은 직접 수정하지 않고 A 레인에 요청. A 머지 후 B·C는 최신 main 기준 rebase.
+**공유 지점 규칙**: `lib/`·`components/mdx/`·테스트 인프라의 공유 파일 변경이 필요하면 B·C·D 레인은 직접 수정하지 않고 A 레인에 요청. A 머지 후 각 레인은 최신 main 기준 rebase.
 
-**머지 순서**: `A → B → C → D` (각 머지마다 최신 main rebase 후 테스트 재확인 — 프로세스 8단계)
+**머지 단위와 순서**: 머지(PR) 단위는 **레인 전체가 아니라 스토리**다. 레인은 작업공간(worktree) 단위, PR은 스토리 단위 — C 레인은 US1 완료 시 PR을 올리고 US4는 이후 별도 PR.
+
+```
+A(Phase 1~2) → US2(B) → US1(C) → US3(B) → US4(C) → D(통합 스위트 T045)
+```
+
 - A 먼저: 모든 레인의 전제.
-- B가 C보다 먼저: C의 발행 E2E가 공개 페이지 노출 확인을 필요로 함.
-- D 마지막: 통합 상태에서 전체 스위트 통과 확인.
+- US2가 US1보다 먼저: US1의 발행 E2E(V1 step 4)가 공개 페이지 노출 확인을 필요로 함.
+- 각 머지마다 최신 main rebase 후 테스트 재확인 (프로세스 8단계).
+
+**테스트 전달 규칙(레인 D)**: 각 스토리의 테스트(T028·T034·T040·T044)는 D가 작성해 **해당 스토리의 레인 브랜치로 전달**(레인 브랜치 대상 PR 또는 패치)하고, 스토리 PR에 테스트 포함을 필수로 한다 — 테스트가 스토리 머지의 게이트가 되도록. D 자체 브랜치로 머지하는 것은 통합 스위트(T045)뿐.
 
 ---
 
@@ -63,19 +70,19 @@
 
 **Independent Test**: quickstart V1·V2·V6·V8 — 작성→발행→공개 노출, 검증 거부, 유실 방지, 배포 상태
 
-- [ ] T016 [레인:C] [US1] `lib/github.ts` — Contents API 단건 읽기/쓰기(sha 처리) + Git Data API 원자 이동(publish/unpublish 단일 커밋), 커밋 메시지 규약 `content: {action} {slug}` (research R4)
+- [ ] T016 [레인:C] [US1] `lib/github.ts` — Contents API 단건 읽기/쓰기(sha 처리) + Git Data API 원자 이동(publish/unpublish 단일 커밋), 커밋 메시지 규약 `content: {action} {slug}` + **commit author를 운영자 GitHub 계정으로 설정** (research R4, FR-009)
 - [ ] T017 [P] [레인:C] [US1] `lib/deploy.ts` — Vercel Deployments API에서 commitSha로 배포 상태 조회 (research R10)
 - [ ] T018 [레인:C] [US1] `app/api/admin/validate/route.ts` — 저장 없이 frontmatter+MDX 검증, 저장 API와 판정 로직 공유 (contracts 기준)
 - [ ] T019 [레인:C] [US1] `app/api/admin/posts/route.ts`(GET 목록) + `app/api/admin/posts/[slug]/route.ts`(GET 단건, GitHub 최신본+sha 반환)
 - [ ] T020 [레인:C] [US1] `app/api/admin/posts/route.ts` POST — 액션 4종(save-draft/publish/unpublish/delete), contracts의 검증 순서 6단계(slug-immutable, invalid-mdx 422, slug-exists/stale-sha 409), 응답에 commitSha (T016·T018 의존)
 - [ ] T021 [P] [레인:C] [US1] `app/api/admin/images/route.ts` — base64 업로드, 매직 바이트 검증(SVG 제외), 4MB 상한, 파일명 충돌 접미사 (research R8)
 - [ ] T022 [P] [레인:C] [US1] `app/api/admin/deploy-status/route.ts` — `?sha=` 폴링 (T017 의존)
-- [ ] T023 [레인:C] [US1] 에디터 페이지 `app/admin/write/page.tsx` + `components/admin/editor/` — CodeMirror 6 마크다운 입력, frontmatter 폼 필드(제목·요약·태그·slug), 발행된 글은 slug 필드 잠금
+- [ ] T023 [레인:C] [US1] 에디터 페이지 `app/admin/write/page.tsx` + `components/admin/editor/` — CodeMirror 6 마크다운 입력, frontmatter 폼 필드(제목·요약·태그·slug), 발행된 글은 slug 필드 잠금. `app/admin/page.tsx`는 US4 전까지 에디터로 리다이렉트하는 최소 랜딩으로 생성(US1 단독 검증 가능하게)
 - [ ] T024 [레인:C] [US1] 클라이언트 프리뷰 `components/admin/editor/preview.tsx` — @mdx-js/mdx evaluate + `lib/mdx-options.ts` 공유 + 레지스트리 렌더, 디바운스 서버 검증(`/api/admin/validate`) 결과 표시 (research R2)
 - [ ] T025 [P] [레인:C] [US1] 작성 중 localStorage 자동 백업·복원 — 저장 실패·새로고침 후 복원 (FR-007)
 - [ ] T026 [레인:C] [US1] 이미지 붙여넣기/드래그 → 업로드 API 호출 → 본문에 `![](path)` 자동 삽입 (T021·T023 의존)
 - [ ] T027 [레인:C] [US1] 저장/발행 플로우 UI — 초안 저장·발행 버튼, 오류 위치 표시(422), 덮어쓰기 확인(409 slug-exists), 재로드 유도(409 stale-sha), 발행 후 배포 상태 폴링 표시("반영 중→완료/실패") (T020·T022 의존)
-- [ ] T028 [레인:D] [US1] 테스트(코덱스 작성→클코 통과) — 유닛: slug 규칙·frontmatter 스키마·MDX 검증(import 금지 포함) `tests/unit/`; API: posts 액션 4종·검증 순서·원자 이동·images·validate (msw) `tests/api/`
+- [ ] T028 [레인:D] [US1] 테스트(코덱스 작성→클코 통과) — 유닛: slug 규칙·frontmatter 스키마·MDX 검증(import 금지 포함) `tests/unit/`; API: posts 액션 4종·검증 순서·원자 이동·커밋 메시지/author 규약(FR-009)·images·validate (msw) `tests/api/`
 
 **Checkpoint**: US1 단독으로 quickstart V1·V2 검증 가능
 
@@ -121,7 +128,7 @@
 
 - [ ] T041 [레인:C] [US4] 대시보드 `app/admin/page.tsx` + `components/admin/dashboard/` — 발행/초안 구분 목록(GitHub 최신본), invalid 초안 오류 표시, 글별 조회수·최근 발행일 (FR-011·014)
 - [ ] T042 [레인:C] [US4] 발행취소·삭제 UI — 확인 다이얼로그, POST /api/admin/posts 액션 연결 (T041 의존)
-- [ ] T043 [P] [레인:C] [US4] 조회수 기간별 추이 표시 — lib/views.ts 추이 쿼리 + 대시보드 차트/표
+- [ ] T043 [P] [레인:C] [US4] 조회수 기간별 추이 **표시** — T015에서 A가 만든 `lib/views.ts` 추이 조회 함수를 사용해 대시보드 차트/표 구현. `lib/views.ts` 수정 금지(부족하면 A에 요청)
 - [ ] T044 [레인:D] [US4] 테스트(코덱스 작성→클코 통과) — API: 목록(invalid 포함)·발행취소·삭제 `tests/api/dashboard.test.ts`; E2E: 운영자 조회 제외(로그인 반복 조회 후 수치 불변) `tests/e2e/views.spec.ts`
 
 ---
@@ -129,7 +136,7 @@
 ## Phase 7: Polish & Cross-Cutting — 레인 D 중심
 
 - [ ] T045 [레인:D] quickstart V1~V8 중 자동화 가능 시나리오 E2E 통합 스위트(코덱스 작성→클코 통과) — `tests/e2e/demo.spec.ts` (V8 배포 상태는 모킹, 실배포 확인은 수동)
-- [ ] T046 [P] [레인:A] 접근성·성능 마무리 — 시맨틱 마크업 점검, 이미지 lazy, Lighthouse SEO ≥ 90 확인
+- [ ] T046 [P] [레인:B] 공개 페이지 접근성·성능 마무리 — 시맨틱 마크업, 이미지 lazy, Lighthouse SEO ≥ 90 확인 (B 소유 파일만 — 어드민 쪽 발견 사항은 C 백로그로)
 - [ ] T047 [P] [레인:A] README — 셋업 절차(quickstart 요약), 환경변수, Supabase/GitHub/Vercel 설정 가이드
 
 ---
@@ -139,9 +146,9 @@
 - **Phase 1 → Phase 2** (레인 A 내부 순차, T002~T007은 병렬 가능)
 - **Phase 2 완료(A 머지)** ⛔ 이후 Phase 3(레인 C)·Phase 4~5(레인 B) 병렬 시작
 - Phase 5(SEO)는 Phase 4의 T029(글 상세) 이후
-- Phase 6(대시보드)은 Phase 3의 T019·T020(admin API) 이후 — 같은 레인 C라 자연 순차
-- 레인 D는 각 스토리의 계약(contracts/api.md)·스펙만으로 테스트 작성 시작 가능(구현과 병렬), 통과 확인은 해당 구현 후
-- **스토리 완료 순서**: US1·US2(P1, 병렬) → US3(P2) → US4(P3)
+- Phase 6(대시보드)은 Phase 3의 T019·T020(admin API) **및 Phase 4의 T033(views API·비콘)** 이후 — 조회수 표시(V5)가 집계 데이터를 전제
+- 레인 D는 각 스토리의 계약(contracts/api.md)·스펙만으로 테스트 작성 시작 가능(구현과 병렬), 작성분은 해당 스토리 레인 브랜치로 전달(테스트 전달 규칙)
+- **구현은 병렬**(A 머지 후 B·C·D 동시), **머지(PR)는 스토리 단위 순서대로**: US2 → US1 → US3 → US4 → D 통합
 
 ## Parallel Example
 
