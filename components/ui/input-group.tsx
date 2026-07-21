@@ -58,7 +58,10 @@ function InputGroupAddon({
         if ((e.target as HTMLElement).closest("button")) {
           return
         }
-        e.currentTarget.parentElement?.querySelector("input")?.focus()
+        // textarea 변형에서도 클릭-포커스가 동작해야 한다 (codex-review 반영)
+        e.currentTarget.parentElement
+          ?.querySelector<HTMLElement>("input, textarea")
+          ?.focus()
       }}
       {...props}
     />

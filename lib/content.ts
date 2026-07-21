@@ -24,11 +24,13 @@ export function deriveReadingMinutes(body: string): number {
 /** 마크다운 문법·JSX 컴포넌트 태그를 스트립한 앞 500자 (data-model §1) */
 export function deriveExcerpt(body: string): string {
   const text = stripCodeFences(body)
+    // 마크다운 오토링크(<https://...>, <mail@...>)는 태그가 아니라 내용 — 먼저 보존 (리뷰 반영)
+    .replace(/<(https?:\/\/[^>\s]+|[^@>\s]+@[^@>\s]+\.[^>\s]+)>/g, "$1")
     // JSX/HTML 태그 (여는·닫는·self-closing) — 내용 텍스트는 유지
     .replace(/<\/?[A-Za-z][^>]*\/?>/g, " ")
-    // 이미지·링크는 대체 텍스트만 남김
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    // 이미지·링크는 대체 텍스트만 남김 — URL 안 괄호 1단계 허용 (리뷰 반영)
+    .replace(/!\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/g, "$1")
     // 인라인 코드 백틱
     .replace(/`([^`]*)`/g, "$1")
     // 행머리 기호: 제목·인용·리스트·수평선·표 구분행
