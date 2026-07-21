@@ -7,6 +7,10 @@ const GITHUB_API = "https://api.github.com";
  * 파일별 응답은 각 테스트에서 server.use(...)로 덮어쓴다.
  */
 export const githubHandlers = [
+  // lib/github.ts가 원자 커밋 전에 default_branch를 조회한다 (repos.get)
+  http.get(`${GITHUB_API}/repos/:owner/:repo`, () =>
+    HttpResponse.json({ default_branch: "main" }),
+  ),
   http.get(`${GITHUB_API}/repos/:owner/:repo/contents/*`, () =>
     HttpResponse.json({ message: "Not Found" }, { status: 404 }),
   ),

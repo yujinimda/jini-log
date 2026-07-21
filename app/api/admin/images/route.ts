@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { isValidSlug } from "@/lib/content-schema";
 import { getFile, GitHubError, putFile } from "@/lib/github";
 import { apiError } from "../_lib/http";
+import { requireOperator } from "../_lib/guard";
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4MB — Vercel 요청 바디 한도 내 (R8)
 
@@ -44,6 +45,9 @@ function sanitizeFilename(filename: string): { base: string; ext: string } | nul
 }
 
 export async function POST(req: Request) {
+  const denied = await requireOperator();
+  if (denied) return denied;
+
   let payload: { slug?: unknown; filename?: unknown; data?: unknown };
   try {
     payload = await req.json();

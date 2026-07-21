@@ -2,9 +2,13 @@
 // 에디터가 디바운스 호출해 서버 판정을 표시한다. 판정 로직은 posts 저장과 공유 (T018).
 import { NextResponse } from "next/server";
 import { apiError } from "../_lib/http";
+import { requireOperator } from "../_lib/guard";
 import { validatePostInput } from "../_lib/validate-post";
 
 export async function POST(req: Request) {
+  const denied = await requireOperator();
+  if (denied) return denied;
+
   let payload: { frontmatter?: unknown; body?: unknown };
   try {
     payload = await req.json();
