@@ -12,8 +12,9 @@ export async function generateStaticParams() {
 }
 
 export default async function TagPage({ params }: { params: Promise<{ tag: string }> }) {
-  const { tag: raw } = await params;
-  const tag = decodeURIComponent(raw);
+  // generateStaticParams가 넘긴 원본 값이 그대로 들어온다 — 재디코딩하면
+  // "100%" 같은 태그에서 URIError가 난다 (codex-review 반영)
+  const { tag } = await params;
   const posts = (await getPublishedPosts()).filter((post) => post.tags.includes(tag));
   if (posts.length === 0) notFound();
 
