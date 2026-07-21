@@ -102,7 +102,8 @@ export async function getPublishedPosts(): Promise<PostDerived[]> {
     slugs.map(async (slug) => {
       const post = await getPost(slug, "published");
       if (!post) throw new Error(`발행 글을 읽을 수 없습니다: ${slug}`);
-      const { body: _body, ...meta } = post;
+      const { body, ...meta } = post;
+      void body; // 목록에는 본문 제외 (파생값만 유지)
       return meta;
     }),
   );
