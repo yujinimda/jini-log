@@ -19,8 +19,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ tag: string }>;
 }): Promise<Metadata> {
-  const { tag: raw } = await params;
-  const tag = decodeURIComponent(raw);
+  // generateStaticParams의 원본 값이 그대로 들어옴 — 재디코딩 금지 (US2 리뷰와 동일 패턴)
+  const { tag } = await params;
   const title = `#${tag}`;
   const description = `${siteName()}의 "${tag}" 태그가 달린 글 목록`;
   return {
@@ -39,8 +39,9 @@ export async function generateMetadata({
 }
 
 export default async function TagPage({ params }: { params: Promise<{ tag: string }> }) {
-  const { tag: raw } = await params;
-  const tag = decodeURIComponent(raw);
+  // generateStaticParams가 넘긴 원본 값이 그대로 들어온다 — 재디코딩하면
+  // "100%" 같은 태그에서 URIError가 난다 (codex-review 반영)
+  const { tag } = await params;
   const posts = (await getPublishedPosts()).filter((post) => post.tags.includes(tag));
   if (posts.length === 0) notFound();
 
