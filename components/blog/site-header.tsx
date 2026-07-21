@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchButton } from "@/components/blog/search-command";
 
 /** 공개 블로그 공통 헤더 (002 T010 — B1) — 세리프 로고 + [태그 · 검색 · RSS], 얇고 조용한 크롬 */
 export function SiteHeader() {
@@ -12,10 +13,7 @@ export function SiteHeader() {
           <Link href="/tags" className="text-zinc-500 transition-colors hover:text-zinc-900">
             태그
           </Link>
-          {/* 검색 버튼 자리 — US1(T017)에서 ⌘K 다이얼로그와 연결 */}
-          <button type="button" className="text-zinc-500 transition-colors hover:text-zinc-900">
-            검색
-          </button>
+          <SearchButton />
           <a href="/feed.xml" className="text-zinc-500 transition-colors hover:text-zinc-900">
             RSS
           </a>
