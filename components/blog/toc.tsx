@@ -10,16 +10,17 @@ function useActiveHeading(entries: TocEntry[]): string | null {
   const [activeId, setActiveId] = useState<string | null>(entries[0]?.id ?? null);
   const inZone = useRef<Set<string>>(new Set());
 
-  // 클라이언트 내비게이션으로 글이 바뀌면 이전 글의 추적 상태를 렌더 중에 리셋
-  // (codex-review 반영 — React "adjusting state during render" 패턴)
+  // 클라이언트 내비게이션으로 글이 바뀌면 하이라이트를 렌더 중에 리셋
+  // (codex-review 반영 — React "adjusting state during render" 패턴, ref는 effect에서)
   const [prevEntries, setPrevEntries] = useState(entries);
   if (prevEntries !== entries) {
     setPrevEntries(entries);
-    inZone.current.clear();
     setActiveId(entries[0]?.id ?? null);
   }
 
   useEffect(() => {
+    // 이전 글의 관찰 잔여 상태 제거 — 새 observer가 다시 채운다
+    inZone.current.clear();
     if (entries.length === 0) return;
     const headings = entries
       .map((entry) => document.getElementById(entry.id))
