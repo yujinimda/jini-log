@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import type { PostActionResponse, PostStatus } from "@/lib/types";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { setPendingDeploy } from "@/components/admin/dashboard/deploy-banner";
 import { FrontmatterFields } from "./frontmatter-form";
 import { imageUploadExtension } from "./image-upload";
@@ -69,6 +70,11 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   const [saving, setSaving] = useState<"save-draft" | "publish" | null>(null);
   const [actionError, setActionError] = useState<ApiErrorInfo | null>(null);
   const [isStale, setIsStale] = useState(false);
+  /** 409 slug-exists → 덮어쓰기 확인 다이얼로그 (T021 — 브라우저 confirm 팝업 대체, overwrite 재시도 플로우는 001 그대로) */
+  const [overwritePrompt, setOverwritePrompt] = useState<{
+    action: "save-draft" | "publish";
+    message: string;
+  } | null>(null);
   const [lastCommit, setLastCommit] = useState<{ url: string; action: string } | null>(null);
   const router = useRouter();
 
@@ -110,10 +116,8 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     if (!res.ok) {
       const err = await readApiError(res);
       if (err.status === 409 && err.code === "slug-exists") {
-        // 덮어쓰기 확인 (409 slug-exists → overwrite 재시도)
-        if (window.confirm(`${err.message}\n\n기존 파일을 덮어쓸까요?`)) {
-          return runAction(action, true);
-        }
+        // 덮어쓰기 확인 (409 slug-exists → 확인 시 overwrite 재시도)
+        setOverwritePrompt({ action, message: err.message });
         return;
       }
       if (err.status === 409 && err.code === "stale-sha") {
@@ -312,6 +316,23 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
           slugLocked={status === "published"}
         />
       </header>
+
+      <ConfirmDialog
+        open={overwritePrompt !== null}
+        onOpenChange={(open) => !open && setOverwritePrompt(null)}
+        title="기존 파일 덮어쓰기"
+        description={
+          overwritePrompt ? `${overwritePrompt.message}\n\n기존 파일을 덮어쓸까요?` : ""
+        }
+        confirmLabel="덮어쓰기"
+        destructive
+        onConfirm={() => {
+          if (!overwritePrompt) return;
+          const { action } = overwritePrompt;
+          setOverwritePrompt(null);
+          void runAction(action, true);
+        }}
+      />
 
       <main className="flex min-h-0 flex-1">
         <section className="min-w-0 flex-1 border-r border-zinc-200" aria-label="마크다운 편집">
