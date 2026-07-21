@@ -1,12 +1,13 @@
 "use client";
 // 에디터 본체 (T023) — CodeMirror 마크다운 입력 + frontmatter 폼 + 기존 글 로드.
 // 발행된 글은 slug 잠금 (FR-016 — 서버도 slug-immutable로 강제). 소유: 레인 C
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import type { PostStatus } from "@/lib/types";
 import { FrontmatterFields } from "./frontmatter-form";
-import { emptyForm, fromFrontmatter, readApiError, type FrontmatterForm } from "./types";
+import { Preview } from "./preview";
+import { emptyForm, fromFrontmatter, readApiError, toFrontmatter, type FrontmatterForm } from "./types";
 
 export interface PostEditorProps {
   /** 기존 글 편집 시 대상 slug (없으면 새 글) */
@@ -30,6 +31,8 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   );
   /** 낙관적 잠금용 파일 sha — 수정·이동 커밋에 필수 */
   const [sha, setSha] = useState<string | undefined>(undefined);
+
+  const frontmatter = useMemo(() => toFrontmatter(form), [form]);
 
   // 기존 글 로드 — GitHub 최신본 + sha (편집 시작)
   useEffect(() => {
@@ -106,6 +109,9 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
             className="h-full text-sm"
             placeholder="마크다운 + 등록된 컴포넌트(<Callout>, <Collapse>)로 본문을 작성하세요"
           />
+        </section>
+        <section className="hidden min-w-0 flex-1 md:block" aria-label="프리뷰">
+          <Preview frontmatter={frontmatter} body={body} />
         </section>
       </main>
     </div>
