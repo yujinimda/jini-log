@@ -1,7 +1,17 @@
 // 공개 블로그 공통 레이아웃 (T032) — 반응형, 타이포 중심. 소유: 레인 B
+import type { Metadata } from "next";
 import { SiteFooter } from "@/components/blog/site-footer";
 import { SiteHeader } from "@/components/blog/site-header";
+import { siteUrl } from "@/components/blog/site";
 import "./blog.css";
+
+// OG 이미지 등 상대 경로 메타데이터의 절대 URL 기준 (T035) + RSS 자동 발견 (T038)
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
+  alternates: {
+    types: { "application/rss+xml": "/feed.xml" },
+  },
+};
 
 export default function BlogLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
