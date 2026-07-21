@@ -21,19 +21,16 @@ export async function incrementView(slug: string): Promise<void> {
   if (error) throw new Error(`조회수 기록 실패: ${error.message}`);
 }
 
-interface ViewRow {
-  slug: string;
-  view_date: string;
-  count: number;
-}
+// 집계는 전부 DB RPC에서 수행 — PostgREST 응답 상한(기본 1000행)으로
+// 클라이언트 집계가 조용히 덜 세는 문제 방지 (codex-review 반영)
 
 /** 글별 누적 조회수 (대시보드 목록용) */
 export async function getViewTotals(): Promise<Record<string, number>> {
-  const { data, error } = await client().from("page_views").select("slug, count");
+  const { data, error } = await client().rpc("view_totals");
   if (error) throw new Error(`조회수 조회 실패: ${error.message}`);
   const totals: Record<string, number> = {};
-  for (const row of (data ?? []) as Pick<ViewRow, "slug" | "count">[]) {
-    totals[row.slug] = (totals[row.slug] ?? 0) + row.count;
+  for (const row of (data ?? []) as { slug: string; total: number }[]) {
+    totals[row.slug] = Number(row.total);
   }
   return totals;
 }
@@ -45,17 +42,13 @@ export interface DailyViews {
 
 /** 기간별 추이 — slug 지정 시 해당 글만, 미지정 시 전체 합산 (대시보드 차트용) */
 export async function getDailyViews(days: number, slug?: string): Promise<DailyViews[]> {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  let query = client().from("page_views").select("view_date, count").gte("view_date", since);
-  if (slug) query = query.eq("slug", slug);
-  const { data, error } = await query;
+  const { data, error } = await client().rpc("daily_views", {
+    p_days: days,
+    p_slug: slug ?? null,
+  });
   if (error) throw new Error(`조회수 추이 조회 실패: ${error.message}`);
-
-  const byDate = new Map<string, number>();
-  for (const row of (data ?? []) as Pick<ViewRow, "view_date" | "count">[]) {
-    byDate.set(row.view_date, (byDate.get(row.view_date) ?? 0) + row.count);
-  }
-  return [...byDate.entries()]
-    .map(([date, count]) => ({ date, count }))
-    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  return ((data ?? []) as { view_date: string; total: number }[]).map((row) => ({
+    date: row.view_date,
+    count: Number(row.total),
+  }));
 }
