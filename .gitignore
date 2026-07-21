@@ -22,3 +22,6 @@ test-results/
 .DS_Store
 *.pem
 *.tsbuildinfo
+
+# build artifacts (002 R3 — 검색 인덱스)
+generated/

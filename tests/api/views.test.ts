@@ -33,6 +33,9 @@ const publishedPost = {
   date: "2026-07-21",
   tags: ["blog"],
   status: "published" as const,
+  // getPublishedPosts가 PostDerived[]로 확장됨 (002 R6)
+  readingMinutes: 1,
+  excerpt: "첫 글",
 };
 
 function arrangeDefault() {
