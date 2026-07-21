@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getContentList } from "@/lib/github";
 import { getViewTotals } from "@/lib/views";
 import type { DraftListItem, PostMeta } from "@/lib/types";
+import { PostRowActions } from "@/components/admin/dashboard/post-row-actions";
 
 export const metadata = { title: "대시보드" };
 // GitHub 최신본·조회수는 요청 시점 데이터 — 캐시 금지
@@ -37,7 +38,9 @@ function PostRow({ post, views }: { post: PostMeta; views: number | null }) {
       <td className="px-3 py-2 text-right text-xs tabular-nums">
         {post.status === "published" ? (views ?? "—") : ""}
       </td>
-      <td className="px-3 py-2 text-right"></td>
+      <td className="px-3 py-2 text-right">
+        <PostRowActions slug={post.slug} status={post.status} />
+      </td>
     </tr>
   );
 }
@@ -57,7 +60,9 @@ function InvalidDraftRow({ draft }: { draft: Extract<DraftListItem, { status: "i
       <td className="px-3 py-2 text-xs text-zinc-400">—</td>
       <td className="px-3 py-2 text-xs text-zinc-400">—</td>
       <td className="px-3 py-2"></td>
-      <td className="px-3 py-2 text-right"></td>
+      <td className="px-3 py-2 text-right">
+        <PostRowActions slug={draft.slug} status="draft" />
+      </td>
     </tr>
   );
 }
