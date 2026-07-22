@@ -39,6 +39,7 @@ async function uploadOne(
   slug: string,
   pos: number,
   onError: (message: string) => void,
+  onSuccess: (message: string) => void,
 ) {
   const placeholder = `![업로드 중: ${file.name}]()`;
   view.dispatch({ changes: { from: pos, insert: `${placeholder}\n` } });
@@ -55,6 +56,7 @@ async function uploadOne(
     }
     const { path } = (await res.json()) as { path: string };
     replacePlaceholder(view, placeholder, `![](${path})`);
+    onSuccess(`이미지 업로드 완료 (${file.name})`);
   } catch (err) {
     replacePlaceholder(view, placeholder, "");
     onError(`이미지 업로드 실패 (${file.name}): ${(err as Error).message}`);
@@ -67,6 +69,7 @@ async function handleFiles(
   pos: number,
   getSlug: () => string,
   onError: (message: string) => void,
+  onSuccess: (message: string) => void,
 ) {
   const slug = getSlug().trim();
   if (!slug) {
@@ -75,21 +78,26 @@ async function handleFiles(
   }
   // GitHub 커밋 경합을 피해 순차 업로드
   for (const file of files) {
-    await uploadOne(view, file, slug, pos, onError);
+    await uploadOne(view, file, slug, pos, onError, onSuccess);
     pos = view.state.selection.main.head; // 다음 파일은 현재 커서 기준
   }
 }
 
 /**
  * CodeMirror 확장 — slug는 ref 게터로 읽어 확장 재생성 없이 최신 값을 쓴다.
+ * 성공·실패 통지는 콜백으로 위임 (T022 — toast 표출은 에디터가 결정).
  */
-export function imageUploadExtension(getSlug: () => string, onError: (message: string) => void) {
+export function imageUploadExtension(
+  getSlug: () => string,
+  onError: (message: string) => void,
+  onSuccess: (message: string) => void,
+) {
   return EditorView.domEventHandlers({
     paste(event, view) {
       const files = imageFiles(event.clipboardData);
       if (files.length === 0) return false;
       event.preventDefault();
-      void handleFiles(view, files, view.state.selection.main.head, getSlug, onError);
+      void handleFiles(view, files, view.state.selection.main.head, getSlug, onError, onSuccess);
       return true;
     },
     drop(event, view) {
@@ -99,7 +107,7 @@ export function imageUploadExtension(getSlug: () => string, onError: (message: s
       const pos =
         view.posAtCoords({ x: event.clientX, y: event.clientY }) ??
         view.state.selection.main.head;
-      void handleFiles(view, files, pos, getSlug, onError);
+      void handleFiles(view, files, pos, getSlug, onError, onSuccess);
       return true;
     },
   });

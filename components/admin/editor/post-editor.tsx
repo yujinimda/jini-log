@@ -5,7 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
+import { toast } from "sonner";
 import type { PostActionResponse, PostStatus } from "@/lib/types";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { setPendingDeploy } from "@/components/admin/dashboard/deploy-banner";
 import { FrontmatterFields } from "./frontmatter-form";
 import { imageUploadExtension } from "./image-upload";
@@ -19,6 +21,20 @@ import {
   type ApiErrorInfo,
   type FrontmatterForm,
 } from "./types";
+
+/** 실패 toast 요약 문구 — 인라인 배너와 같은 분류 (T022) */
+function errorSummary(code: string): string {
+  switch (code) {
+    case "invalid-mdx":
+      return "본문 검증 실패 — 커밋되지 않았습니다";
+    case "invalid-frontmatter":
+      return "메타데이터 검증 실패 — 커밋되지 않았습니다";
+    case "stale-sha":
+      return "다른 곳에서 변경됨";
+    default:
+      return `저장 실패 (${code})`;
+  }
+}
 
 export interface PostEditorProps {
   /** 기존 글 편집 시 대상 slug (없으면 새 글) */
@@ -48,12 +64,24 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   // 작성 중 자동 백업·복원 (FR-007) — 저장 성공 시 clearBackup 호출
   const backup = useDraftBackup({ originalSlug, form, body, slug, ready: !loading && !loadError });
 
-  // 이미지 붙여넣기/드래그 업로드 (T026) — slug는 ref로 읽어 확장을 재생성하지 않는다
+  // 이미지 붙여넣기/드래그 업로드 (T026) — slug는 ref로 읽어 확장을 재생성하지 않는다.
+  // 렌더 시점 대입이어야 slug 수정 직후의 paste/drop이 옛 값을 읽는 레이스가 없다
+  // (codex-review 반영 — effect 동기화는 passive flush 전 DOM 이벤트에 늦는다)
   const slugRef = useRef(slug);
+  // eslint-disable-next-line react-hooks/refs -- 이벤트 핸들러 전용 최신값 미러 (렌더 로직에 미사용)
   slugRef.current = slug;
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  // 업로드 성공·실패 통지는 toast (T022) — 인라인 배너 제거
   const extensions = useMemo(
-    () => [markdown(), imageUploadExtension(() => slugRef.current, setUploadError)],
+    () => [
+      markdown(),
+      imageUploadExtension(
+        // 게터는 paste/drop "이벤트 시점"에만 ref를 읽는다 — 렌더 중 접근 아님 (규칙 오탐)
+        // eslint-disable-next-line react-hooks/refs
+        () => slugRef.current,
+        (message) => toast.error(message),
+        (message) => toast.success(message),
+      ),
+    ],
     [],
   );
 
@@ -69,7 +97,15 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   const [saving, setSaving] = useState<"save-draft" | "publish" | null>(null);
   const [actionError, setActionError] = useState<ApiErrorInfo | null>(null);
   const [isStale, setIsStale] = useState(false);
-  const [lastCommit, setLastCommit] = useState<{ url: string; action: string } | null>(null);
+  /** 409 slug-exists → 덮어쓰기 확인 다이얼로그 (T021 — 브라우저 confirm 팝업 대체, overwrite 재시도 플로우는 001 그대로) */
+  const [overwritePrompt, setOverwritePrompt] = useState<{
+    action: "save-draft" | "publish";
+    message: string;
+  } | null>(null);
+  /** 마지막 저장 시각 — 액션바에 상시 표시 (T024) */
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  /** 프리뷰 패널 토글 (T024) — md 미만에서는 원래 숨김이라 md+에서만 의미 있음 */
+  const [showPreview, setShowPreview] = useState(true);
   const router = useRouter();
 
   async function runAction(action: "save-draft" | "publish", overwrite = false) {
@@ -98,10 +134,8 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     } catch {
       // 네트워크 실패 — 작성 내용은 localStorage 백업에 남아 있다 (SC-006)
       setSaving(null);
-      setActionError({
-        status: 0,
-        code: "network-error",
-        message: "저장 요청이 실패했습니다 (네트워크). 작성 내용은 브라우저에 백업되어 있습니다.",
+      toast.error("저장 요청이 실패했습니다 (네트워크)", {
+        description: "작성 내용은 브라우저에 백업되어 있습니다.",
       });
       return;
     }
@@ -110,16 +144,16 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     if (!res.ok) {
       const err = await readApiError(res);
       if (err.status === 409 && err.code === "slug-exists") {
-        // 덮어쓰기 확인 (409 slug-exists → overwrite 재시도)
-        if (window.confirm(`${err.message}\n\n기존 파일을 덮어쓸까요?`)) {
-          return runAction(action, true);
-        }
+        // 덮어쓰기 확인 (409 slug-exists → 확인 시 overwrite 재시도)
+        setOverwritePrompt({ action, message: err.message });
         return;
       }
       if (err.status === 409 && err.code === "stale-sha") {
         setIsStale(true); // 재로드 유도
       }
       setActionError(err);
+      // 실패 toast — 요약 + 사유. 422의 행·열 오류 목록은 에디터 인라인 유지 (계약)
+      toast.error(errorSummary(err.code), { description: err.message });
       return;
     }
 
@@ -129,13 +163,20 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     // 발행 완료 → 대시보드로 이동, 반영 상태는 대시보드 배너가 이어서 폴링 (사용자 피드백 반영)
     if (action === "publish") {
       setPendingDeploy({ sha: data.commitSha, label: `"${trimmedSlug}" 발행 반영` });
+      // Toaster가 admin 레이아웃에 있어 대시보드 이동 후에도 toast가 유지된다 (T022)
+      toast.success(`"${trimmedSlug}" 글을 발행했습니다`, {
+        action: { label: "커밋 보기", onClick: () => window.open(data.commitUrl, "_blank") },
+      });
       router.push("/admin");
       return;
     }
 
     setStatus("draft");
     setOriginalSlug(trimmedSlug);
-    setLastCommit({ url: data.commitUrl, action });
+    setLastSavedAt(new Date());
+    toast.success(`"${trimmedSlug}" 초안을 저장했습니다`, {
+      action: { label: "커밋 보기", onClick: () => window.open(data.commitUrl, "_blank") },
+    });
 
     // URL을 저장된 글 기준으로 동기화 — 새로고침해도 같은 글 편집이 이어진다
     window.history.replaceState(null, "", `/admin/write?slug=${trimmedSlug}&status=draft`);
@@ -230,55 +271,61 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
           </span>
         </div>
       )}
-      <header className="border-b border-zinc-200 px-4 py-3">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      {/* 상단 액션바 — sticky 고정 + 마지막 저장 시각 상시 표시 + 프리뷰 토글 (T024) */}
+      <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-white/95 px-4 py-2 backdrop-blur">
+        <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-zinc-700">
             {status === "new" ? "새 글 작성" : `편집: ${originalSlug ?? slug} (${status === "published" ? "발행됨" : "초안"})`}
           </h1>
-          <div className="flex items-center gap-3">
-            {lastCommit && (
-              <a
-                href={lastCommit.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-zinc-500 underline"
-              >
-                {lastCommit.action === "publish" ? "발행 커밋" : "저장 커밋"} 보기
-              </a>
-            )}
-            {status !== "published" && (
-              <button
-                onClick={() => runAction("save-draft")}
-                disabled={saving !== null}
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-              >
-                {saving === "save-draft" ? "저장 중..." : "초안 저장"}
-              </button>
-            )}
-            <button
-              onClick={() => runAction("publish")}
-              disabled={saving !== null}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-            >
-              {saving === "publish" ? "발행 중..." : status === "published" ? "재발행" : "발행"}
-            </button>
-            <a href="/admin" className="text-xs text-zinc-500 underline">
-              대시보드
-            </a>
-          </div>
+          <span className="text-xs whitespace-nowrap text-zinc-400">
+            마지막 저장{" "}
+            {lastSavedAt
+              ? lastSavedAt.toLocaleTimeString("ko-KR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })
+              : "—"}
+          </span>
         </div>
-        {actionError && (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowPreview((v) => !v)}
+            aria-pressed={showPreview}
+            className="hidden rounded-md border border-zinc-200 px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 md:block"
+          >
+            {showPreview ? "프리뷰 숨기기" : "프리뷰 표시"}
+          </button>
+          {status !== "published" && (
+            <button
+              onClick={() => runAction("save-draft")}
+              disabled={saving !== null}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              {saving === "save-draft" ? "저장 중..." : "초안 저장"}
+            </button>
+          )}
+          <button
+            onClick={() => runAction("publish")}
+            disabled={saving !== null}
+            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {saving === "publish" ? "발행 중..." : status === "published" ? "재발행" : "발행"}
+          </button>
+          <a href="/admin" className="text-xs text-zinc-500 underline">
+            대시보드
+          </a>
+        </div>
+      </div>
+
+      <header className="border-b border-zinc-200 px-4 py-3">
+        {/* 실패 통지는 toast (T022) — 인라인은 422 행·열/필드 오류 목록과 stale 재로드 유도만 유지 (계약 예외) */}
+        {actionError && (errorDetails.length > 0 || isStale) && (
           <div
             role="alert"
             className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
           >
-            <p className="font-medium">
-              {actionError.code === "invalid-mdx" && "본문 검증 실패 — 커밋되지 않았습니다"}
-              {actionError.code === "invalid-frontmatter" && "메타데이터 검증 실패 — 커밋되지 않았습니다"}
-              {actionError.code === "stale-sha" && "다른 곳에서 변경됨"}
-              {!["invalid-mdx", "invalid-frontmatter", "stale-sha"].includes(actionError.code) &&
-                `저장 실패 (${actionError.code})`}
-            </p>
+            <p className="font-medium">{errorSummary(actionError.code)}</p>
             <p className="mt-0.5">{actionError.message}</p>
             {errorDetails.length > 0 && (
               <ul className="mt-1 list-disc pl-5 text-xs">
@@ -313,19 +360,25 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
         />
       </header>
 
+      <ConfirmDialog
+        open={overwritePrompt !== null}
+        onOpenChange={(open) => !open && setOverwritePrompt(null)}
+        title="기존 파일 덮어쓰기"
+        description={
+          overwritePrompt ? `${overwritePrompt.message}\n\n기존 파일을 덮어쓸까요?` : ""
+        }
+        confirmLabel="덮어쓰기"
+        destructive
+        onConfirm={() => {
+          if (!overwritePrompt) return;
+          const { action } = overwritePrompt;
+          setOverwritePrompt(null);
+          void runAction(action, true);
+        }}
+      />
+
       <main className="flex min-h-0 flex-1">
         <section className="min-w-0 flex-1 border-r border-zinc-200" aria-label="마크다운 편집">
-          {uploadError && (
-            <p
-              role="alert"
-              className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700"
-            >
-              <span>{uploadError}</span>
-              <button onClick={() => setUploadError(null)} className="shrink-0 underline">
-                닫기
-              </button>
-            </p>
-          )}
           <CodeMirror
             value={body}
             onChange={setBody}
@@ -335,9 +388,11 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
             placeholder="마크다운 + 등록된 컴포넌트(<Callout>, <Collapse>)로 본문을 작성하세요. 이미지는 붙여넣기/드래그로 업로드됩니다."
           />
         </section>
-        <section className="hidden min-w-0 flex-1 md:block" aria-label="프리뷰">
-          <Preview frontmatter={frontmatter} body={body} />
-        </section>
+        {showPreview && (
+          <section className="hidden min-w-0 flex-1 md:block" aria-label="프리뷰">
+            <Preview frontmatter={frontmatter} body={body} />
+          </section>
+        )}
       </main>
     </div>
   );
