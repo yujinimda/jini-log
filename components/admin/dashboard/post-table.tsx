@@ -166,16 +166,33 @@ export function PostTable({
     return <p className="px-3 py-6 text-center text-sm text-zinc-400">{emptyText}</p>;
   }
 
-  const sorted = sortItems(items, sort, totals);
+  // 조회 데이터가 없으면(로드 실패·전부 초안) 조회수 정렬은 무의미 — 비활성 (codex-review 반영)
+  const viewsSortable = totals !== null && items.some((item) => item.status === "published");
+  const effectiveSort: SortState =
+    sort.key === "views" && !viewsSortable ? { key: "date", dir: "desc" } : sort;
+
+  const sorted = sortItems(items, effectiveSort, totals);
 
   return (
     <Table>
       <TableHeader>
         <TableRow className="border-zinc-200 hover:bg-transparent">
-          <SortableHead label="제목" sortKey="title" sort={sort} onSort={toggleSort} />
-          <SortableHead label="발행일" sortKey="date" sort={sort} onSort={toggleSort} />
+          <SortableHead label="제목" sortKey="title" sort={effectiveSort} onSort={toggleSort} />
+          <SortableHead label="발행일" sortKey="date" sort={effectiveSort} onSort={toggleSort} />
           <TableHead className="px-3 py-2 text-xs font-medium text-zinc-500">태그</TableHead>
-          <SortableHead label="조회수" sortKey="views" sort={sort} onSort={toggleSort} align="right" />
+          {viewsSortable ? (
+            <SortableHead
+              label="조회수"
+              sortKey="views"
+              sort={effectiveSort}
+              onSort={toggleSort}
+              align="right"
+            />
+          ) : (
+            <TableHead className="px-3 py-2 text-right text-xs font-medium text-zinc-500">
+              조회수
+            </TableHead>
+          )}
           <TableHead className="px-3 py-2"></TableHead>
         </TableRow>
       </TableHeader>

@@ -64,11 +64,12 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   // 작성 중 자동 백업·복원 (FR-007) — 저장 성공 시 clearBackup 호출
   const backup = useDraftBackup({ originalSlug, form, body, slug, ready: !loading && !loadError });
 
-  // 이미지 붙여넣기/드래그 업로드 (T026) — slug는 ref로 읽어 확장을 재생성하지 않는다
+  // 이미지 붙여넣기/드래그 업로드 (T026) — slug는 ref로 읽어 확장을 재생성하지 않는다.
+  // 렌더 시점 대입이어야 slug 수정 직후의 paste/drop이 옛 값을 읽는 레이스가 없다
+  // (codex-review 반영 — effect 동기화는 passive flush 전 DOM 이벤트에 늦는다)
   const slugRef = useRef(slug);
-  useEffect(() => {
-    slugRef.current = slug;
-  }, [slug]);
+  // eslint-disable-next-line react-hooks/refs -- 이벤트 핸들러 전용 최신값 미러 (렌더 로직에 미사용)
+  slugRef.current = slug;
   // 업로드 성공·실패 통지는 toast (T022) — 인라인 배너 제거
   const extensions = useMemo(
     () => [
