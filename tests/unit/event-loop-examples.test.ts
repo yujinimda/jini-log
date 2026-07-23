@@ -48,21 +48,9 @@ describe("event-loop 예제 데이터", () => {
       }
     });
 
-    it("I3: 인접 스텝의 콜스택 변화는 공통 접두사 + pop들 + push들 형태다", () => {
-      // 혼합 굵기(grilling Q4)라 한 스텝에 여러 pop/push 허용 — 접두사 바깥을 바꾸는 변화만 금지
-      for (let i = 1; i < example.steps.length; i++) {
-        const prev = example.steps[i - 1].callstack;
-        const curr = example.steps[i].callstack;
-        let common = 0;
-        while (common < prev.length && common < curr.length && prev[common] === curr[common]) {
-          common++;
-        }
-        // 공통 접두사 이후: prev의 나머지는 전부 pop, curr의 나머지는 전부 push — 어떤 조합이든
-        // "prev[0..common) === curr[0..common)"만 만족하면 성립한다. 접두사가 어긋난 경우만 실패.
-        expect(prev.slice(0, common)).toEqual(curr.slice(0, common));
-        expect(common === prev.length || common === curr.length || prev[common] !== curr[common]).toBe(true);
-      }
-    });
+    // I3(콜스택 pop/push 정합)는 스냅샷 쌍만으로는 기계 판별이 불가능하다 — 임의의 두 스택은
+    // 항상 "공통 접두사 + pop들 + push들"로 표현 가능해서 어떤 검사도 항진이 된다 (codex-review P2).
+    // I3는 리뷰 책임으로 강등하고, 기계 방어선은 FR-009 실행 대조가 맡는다 (data-model.md §1 개정).
 
     it("I4: 첫 스텝과 마지막 스텝은 스택·큐가 비어 있다 (마지막은 webApis도)", () => {
       const first = example.steps[0];
