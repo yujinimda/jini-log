@@ -5,11 +5,15 @@ import type { MDXComponents } from "mdx/types";
 import { Callout } from "./callout";
 import { CodeBlock } from "./code-block";
 import { Collapse } from "./collapse";
+import { EventLoopQuiz } from "./event-loop/event-loop-quiz";
+import { EventLoopSimulator } from "./event-loop/event-loop-simulator";
 
 export const mdxComponents: MDXComponents = {
   pre: CodeBlock,
   Callout,
   Collapse,
+  EventLoopSimulator,
+  EventLoopQuiz,
 };
 
 /** 검증에서 "미등록 컴포넌트" 판정에 쓰는 이름 목록 (대문자 시작 = 커스텀) */
