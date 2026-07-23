@@ -11,7 +11,7 @@ export function QueuePane({
 }) {
   return (
     <section className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-      <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{label}</h4>
+      <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{label}</div>
       <div className="mt-2 flex min-h-9 flex-wrap items-start gap-1">
         {items.length === 0 ? (
           <p className="text-xs text-zinc-400 dark:text-zinc-500">비어 있어요</p>

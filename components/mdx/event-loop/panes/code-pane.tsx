@@ -15,7 +15,7 @@ export function CodePane({ code, line }: { code: string[]; line: number | null }
             >
               {i + 1}
             </span>
-            <code className="whitespace-pre">{text || " "}</code>
+            <span className="whitespace-pre">{text || " "}</span>
           </div>
         );
       })}
