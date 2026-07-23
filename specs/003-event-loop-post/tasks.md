@@ -12,8 +12,8 @@
 | B 테스트 | `lane/003-b-tests` | `tests/unit/event-loop-*.test.ts`, `tests/e2e/event-loop.spec.ts`, `tests/helpers/event-loop-runner.ts` | US3 |
 | C 글+사용자 예제 | `lane/003-c-post` | `content/posts/js-event-loop.mdx`, `components/mdx/event-loop/examples-user.ts`의 **내용**(파일 생성은 A가 스텁으로) | US2 + 사용자 직접 파트 |
 
-- **공유 지점 규칙**: `registry.ts`·`examples.ts`·`types.ts`는 A 단독 소유 — B·C는 참조만. 사용자 직접 작성 예제는 `examples-user.ts`로 물리 분리(A가 빈 스텁 생성, C에서 사용자가 채움) → 같은 파일을 두 레인이 만지는 지점 0.
-- **머지 순서**: A → B → C. B의 글 의존 테스트(post·E2E)는 skipIf(글 파일 부재) 패턴으로 작성해 C 머지 시 자동 활성화 (001 관례).
+- **공유 지점 규칙**: `registry.ts`·`examples.ts`·`types.ts`는 A 단독 소유 — B·C는 참조만. **유일한 예외는 `examples-user.ts`**: A가 스텁을 생성해 머지한 뒤 소유권이 C(사용자)로 이관된다 — 시점이 순차라 동시 수정은 없지만, 소유권 이동 파일임을 명시한다 (codex W2).
+- **머지 순서**: A → B → C. B의 글 의존 테스트(post·E2E)는 **파일 존재를 런타임에 검사해 skip**하는 패턴으로 작성한다 — 글 파일을 모듈 최상위에서 eager import/read하면 B 머지 시점(글 없음)에 크래시하므로 금지, 존재 검사 후 lazy read (001 skipIf 관례, codex B2). C는 **B 머지 직후 main을 rebase로 흡수한 뒤** T019를 시작한다 (채점 테스트 확보, codex W1).
 - **역할 역전(테스트 레인)**: B는 codex가 스펙·계약을 보고 테스트를 작성하고 클코가 통과시킨다. codex 15분+ 무응답 시 역전 해제(클코 직접 작성, skipIf·계약 대조·경계 케이스 패턴 준수).
 - **사용자 직접 (TODO(human))**: C의 T017(핵심 예제 2개 스텝 작성)·T020(글 검수). 형식 시범(`callstack-only`)과 채점 테스트(FR-009/010)가 먼저 머지되어 있어 즉각 피드백 가능.
 
@@ -24,8 +24,8 @@
 ## Phase 2: Foundational (레인 A 선행분 — 모든 스토리의 전제)
 
 - [ ] T002 [A] `components/mdx/event-loop/types.ts` — SimStep·SimExample·SimQuiz·Panel 타입 (data-model.md §1~4, React 의존 금지)
-- [ ] T003 [A] `components/mdx/event-loop/examples.ts` — 위임 예제 5개(intro-quiz, callstack-only, settimeout-webapi, task-queue-loop, final-quiz) + quizzes 레코드(intro·final) + `examples-user.ts` 병합 export. 형식 시범 예제는 callstack-only. FR-014 await 규칙·I1~I8 준수, note는 한 줄 설명
-- [ ] T004 [A] `components/mdx/event-loop/examples-user.ts` — 빈 스텁 (microtask-priority, async-await-split 자리에 TODO(human) 주석 + 형식 안내, 빈 레코드 export로 병합 무해)
+- [ ] T003 [A] `components/mdx/event-loop/examples-user.ts` — 빈 스텁 먼저 (microtask-priority, async-await-split 자리에 TODO(human) 주석 + 형식 안내, 빈 레코드 export로 병합 무해) — T004가 import하므로 선행 (codex B1)
+- [ ] T004 [A] `components/mdx/event-loop/examples.ts` — 위임 예제 5개(intro-quiz, callstack-only, settimeout-webapi, task-queue-loop, final-quiz) + quizzes 레코드(intro·final) + `examples-user.ts` 병합 export. 형식 시범 예제는 callstack-only. FR-014 await 규칙·I1~I8 준수, note는 한 줄 설명
 
 ## Phase 3: User Story 1 — 시뮬레이터 (P1, 레인 A)
 
@@ -49,16 +49,16 @@
 
 - [ ] T014 [US3] `tests/helpers/event-loop-runner.ts` — quiescence 러너 (R4: console/setTimeout/queueMicrotask 주입+대기 카운터, 비화이트리스트 글로벌 undefined shadowing, 1000턴 상한)
 - [ ] T015 [P] [US3] `tests/unit/event-loop-examples.test.ts` — 전 예제 FR-009 실행 대조 + FR-010 불변식 I1~I5 + I8 금지 식별자 정적 스캔 (examples-user 병합분 포함 — 스텁이면 해당 id skip)
-- [ ] T016 [P] [US3] `tests/unit/event-loop-quiz-data.test.ts` + `tests/unit/event-loop-post.test.ts` — I9/I10 퀴즈 정합, 글 MDX example/quiz/panels 참조·Callout 2종·Collapse 부록 정적 검증 (글 부재 시 skipIf), `tests/e2e/event-loop.spec.ts` — 렌더·조작·퀴즈 해금 스모크 (FR-011, 글 부재 시 skip)
-- [ ] T017 [US3] 레인 B 검증: `pnpm test`(스텁 skip 확인 포함) → codex-review → PR #B
+- [ ] T016 [P] [US3] `tests/unit/event-loop-quiz-data.test.ts` + `tests/unit/event-loop-post.test.ts` — I9/I10 퀴즈 정합, 글 MDX example/quiz/panels 참조·Callout 2종·Collapse 부록·"지금은 이해 안 되는 게 정상" 카피(US2-AC4) 정적 검증, `tests/e2e/event-loop.spec.ts` — 렌더·조작·퀴즈 해금 스모크 (FR-011). **글 의존 테스트는 전부 존재 검사 후 lazy read + skip — eager import 금지** (B 머지 시점 그린 보장)
+- [ ] T017 [US3] 레인 B 검증: `pnpm lint && pnpm build && pnpm test`(글 부재 skip 동작 확인 포함) → codex-review → PR #B
 
 ## Phase 5: User Story 2 — 글 + 사용자 파트 (P2, 레인 C, 머지 3순위)
 
 **Goal**: 서사 완결된 글 게시, 핵심 예제 2개는 작성자가 직접
 **Independent Test**: quickstart §2 수동 체크리스트 전체
 
-- [ ] T018 [US2] `content/posts/js-event-loop.mdx` 초안 — 서사 7단계(FR-001), 섹션별 "실무에서는"/"생각해볼 점" Callout(FR-006), Node 심화 Collapse(FR-007), 시뮬레이터 점진 패널·퀴즈 2개 삽입. **말투: 사용자 구어체 해요체, 이모지 금지, AI 상투구 금지 (R9)**
-- [ ] T019 [US2] **사용자 직접(TODO-human)**: `components/mdx/event-loop/examples-user.ts`에 microtask-priority·async-await-split 스텝 작성 — 형식은 callstack-only 참고, `pnpm test`가 채점 (FR-009/010/014). 막히면 클코가 힌트(정답 아닌 방향) 제공
+- [ ] T018 [US2] `content/posts/js-event-loop.mdx` 초안 — 서사 7단계(FR-001), 섹션별 "실무에서는"/"생각해볼 점" Callout(FR-006), Node 심화 Collapse(FR-007), 시뮬레이터 점진 패널·퀴즈 2개 삽입, 도입 퀴즈 해설에 "지금은 이해 안 되는 게 정상" 카피(US2-AC4). **말투: 사용자 구어체 해요체, 이모지 금지, AI 상투구 금지 (R9)**
+- [ ] T019 [US2] **사용자 직접(TODO-human)**: 시작 전 레인 C에 main rebase(B 머지분 흡수 — 채점 테스트 확보). `components/mdx/event-loop/examples-user.ts`에 microtask-priority·async-await-split 스텝 작성 — 형식은 callstack-only 참고, `pnpm test`가 채점 (FR-009/010/014). 막히면 클코가 힌트(정답 아닌 방향) 제공
 - [ ] T020 [US2] **사용자 직접**: 글 초안 검수·수정 (말투·내용), 완료 선언
 - [ ] T021 [US2] 레인 C 검증: `pnpm lint && pnpm build && pnpm test && pnpm test:e2e` 전체 그린 → codex-review → PR #C
 
