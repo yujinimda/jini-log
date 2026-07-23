@@ -27,7 +27,7 @@ interface SimStep {
 
 - I1. `line`은 null이거나 `1 <= line <= code.length`
 - I2. `output`은 append-only: `steps[i].output`은 `steps[i+1].output`의 접두사(prefix)
-- I3. 콜스택 정합: 스텝 0의 callstack부터 시작해 인접 스텝 간 변화가 "끝에서의 push/pop 조합"으로 설명 가능해야 한다. 혼합 굵기(grilling Q4)이므로 한 스텝에서 여러 push/pop 허용 — 검증은 LCS가 아니라 "공통 접두사 이후 pop들 + push들" 형태인지 확인
+- I3. 콜스택 정합: 스텝 0의 callstack부터 시작해 인접 스텝 간 변화가 "끝에서의 push/pop 조합"으로 설명 가능해야 한다. 혼합 굵기(grilling Q4)이므로 한 스텝에서 여러 push/pop 허용. **기계 검증 불가 판정 (2026-07-23 codex-review P2)**: 임의의 두 스택은 항상 "공통 접두사 + pop들 + push들"로 표현 가능해 스냅샷 쌍 검사가 항진이 된다 — I3는 리뷰 책임으로 강등, 기계 방어선은 I7(FR-009 실행 대조)이 맡는다
 - I4. 첫 스텝과 마지막 스텝의 callstack·micro·task는 비어 있어야 한다 (프로그램 시작 전/종료 후 — webApis도 마지막엔 빈 배열)
 - I5. 항목 문자열은 비어 있지 않다
 
