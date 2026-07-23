@@ -58,8 +58,8 @@
 **Independent Test**: quickstart §2 수동 체크리스트 전체
 
 - [ ] T018 [US2] `content/posts/js-event-loop.mdx` 초안 — 서사 7단계(FR-001), 섹션별 "실무에서는"/"생각해볼 점" Callout(FR-006), Node 심화 Collapse(FR-007), 시뮬레이터 점진 패널·퀴즈 2개 삽입, 도입 퀴즈 해설에 "지금은 이해 안 되는 게 정상" 카피(US2-AC4). **말투: 사용자 구어체 해요체, 이모지 금지, AI 상투구 금지 (R9)**
-- [ ] T019 [US2] **사용자 직접(TODO-human)**: 시작 전 레인 C에 main rebase(B 머지분 흡수 — 채점 테스트 확보). `components/mdx/event-loop/examples-user.ts`에 microtask-priority·async-await-split 스텝 작성 — 형식은 callstack-only 참고, `pnpm test`가 채점 (FR-009/010/014). 막히면 클코가 힌트(정답 아닌 방향) 제공
-- [ ] T020 [US2] **사용자 직접**: 글 초안 검수·수정 (말투·내용), 완료 선언
+- [ ] T019 [US2] 시작 전 레인 C에 main rebase(B 머지분 흡수 — 채점 테스트 확보). `components/mdx/event-loop/examples-user.ts`에 microtask-priority·async-await-split 스텝 작성 — 형식은 callstack-only 참고, `pnpm test`가 채점 (FR-009/010/014). ~~사용자 직접~~ → **위임** (2026-07-23 사용자 지시)
+- [ ] T020 [US2] 글 초안 최종 다듬기 (말투 R9·내용 정합) — 사용자 검수는 게시 후 가능하도록 비블로킹 처리 (2026-07-23 사용자 지시)
 - [ ] T021 [US2] 레인 C 검증: `pnpm lint && pnpm build && pnpm test && pnpm test:e2e` 전체 그린 → codex-review → PR #C
 
 ## Phase 6: Polish & 배포
