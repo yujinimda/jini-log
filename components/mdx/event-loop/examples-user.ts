@@ -43,7 +43,7 @@ export const userExamples: Record<string, SimExample> = {
         note: "setTimeout이 콜백을 타이머에 맡겨요.",
       },
       {
-        line: 5,
+        line: 6, // 콜백을 큐에 넣는 주체는 5줄의 resolve가 아니라 6줄의 .then 호출 (codex-review)
         callstack: ["Promise.then"],
         webApis: ["타이머 (0ms)"],
         micro: ["then 콜백 1"],
