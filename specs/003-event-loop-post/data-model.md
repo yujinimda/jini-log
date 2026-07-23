@@ -48,7 +48,7 @@ interface SimExample {
 
 - I6. `id`는 `examples.ts` 레코드의 키와 일치
 - I7. `steps.at(-1).output` === 코드 실제 실행 시 콘솔 출력 (FR-009 — 테스트가 실제 실행해 비교)
-- I8. 코드는 화이트리스트 API만 사용: `console.log`, `setTimeout`(**지연 0만 허용**), `Promise.resolve/then/catch`, `async/await`, `queueMicrotask` (grilling Q3). **완료 계약(R4)**: 비동기 진입점은 주입 가능한 setTimeout·queueMicrotask·Promise 체인뿐이어야 한다 — quiescence 러너가 대기 카운터로 종료를 정확히 판정하는 전제. setInterval·fetch 등 다른 진입점은 위반이며, 러너가 주입하지 않으므로 ReferenceError 또는 카운터 상한 초과로 기계 검출된다
+- I8. 코드는 화이트리스트 API만 사용: `console.log`, `setTimeout`(**지연 0만 허용**), `Promise.resolve/then/catch`, `async/await`, `queueMicrotask` (grilling Q3). **완료 계약(R4)**: 비동기 진입점은 주입 가능한 setTimeout·queueMicrotask·Promise 체인뿐이어야 한다 — quiescence 러너가 대기 카운터로 종료를 정확히 판정하는 전제. 위반 검출은 2중 (codex 재리뷰 WARNING 반영): (a) 러너가 `setInterval`·`fetch`·`setImmediate` 등 비화이트리스트 글로벌을 undefined 파라미터로 **shadowing**해 사용 시 TypeError 유발, (b) examples 테스트가 코드 문자열에서 금지 식별자를 **정적 스캔**해 실패시킨다 (Node 글로벌에 이미 존재하는 fetch 등이 카운터 밖에서 도는 경로 차단)
 
 **예제 목록 (FR-005, 서사 순서)**:
 
