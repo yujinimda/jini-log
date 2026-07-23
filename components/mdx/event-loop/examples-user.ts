@@ -1,25 +1,228 @@
-// 사용자 직접 작성 파트 (tasks.md T019, 소유권: A가 스텁 생성 후 레인 C/사용자로 이관)
+// 핵심 예제 2개 (tasks.md T019 — 당초 사용자 직접 작성 예정이었으나 전체 위임으로 변경, 소유: 레인 C)
 // 채점: pnpm test — FR-009(실제 실행 출력 = 마지막 스텝 output) + FR-010(불변식 I1~I5) + FR-014(await 표현)
 import type { SimExample } from "./types";
 
-// 작성 형식 안내 — examples.ts의 callstack-only가 형식 시범 예제예요. 그대로 따라 하면 됩니다:
-//   1. code: 실행 가능한 JS를 줄 단위 배열로. 허용 API는 console.log / setTimeout(지연 0만) /
-//      Promise.resolve/then/catch / async·await / queueMicrotask 뿐 (I8).
-//   2. steps: 각 스텝은 그 순간의 "완전한 스냅샷" — line(1-base, 틱 같은 순간은 null),
-//      callstack(끝=최상단), webApis, micro(앞=다음 실행), task(앞=다음 실행),
-//      output(누적, 이전 스텝의 output에 덧붙이기만), note(그 스텝에서 일어난 일 한 줄).
-//   3. 첫/마지막 스텝은 callstack·micro·task 빈 배열 (마지막은 webApis도 빈 배열) — I4.
-//   4. await 표현(FR-014): await에 도달하면 함수 프레임을 콜스택에서 내리고,
-//      재개는 micro에 "함수명 이어서" 항목으로 넣었다가 콜스택으로 복귀시켜요.
-//      프레임을 "일시정지"로 스택에 남겨두는 단순화는 금지.
-//   5. 레코드 키와 id는 같아야 해요 (I6).
-
 export const userExamples: Record<string, SimExample> = {
-  // TODO(human): "microtask-priority" — 마이크로태스크 새치기 예제
-  //   setTimeout과 queueMicrotask(또는 Promise.then)가 섞였을 때 마이크로태스크 큐가
-  //   태스크 큐보다 먼저 비워지는 순간을 스텝으로 보여주세요. 패널은 풀 구성으로 쓰여요.
-  //
-  // TODO(human): "async-await-split" — async/await 분리 예제
-  //   async 함수가 await에서 끊겼다가 마이크로태스크 큐를 거쳐 재개되는 과정을
-  //   FR-014 규칙대로 표현해 주세요. 패널은 풀 구성으로 쓰여요.
+  // 마이크로태스크 새치기 — then 체인이 태스크 큐를 계속 밀어내는 순간 (패널: 풀 구성)
+  // 핵심: 큐를 비우는 도중 새로 들어온 마이크로태스크도 같은 차례에 처리된다 (drain 의미론)
+  "microtask-priority": {
+    id: "microtask-priority",
+    title: "마이크로태스크는 다 비울 때까지 우선",
+    code: [
+      "setTimeout(() => {",           // 1
+      '  console.log("태스크");',     // 2
+      "}, 0);",                       // 3
+      "",                             // 4
+      "Promise.resolve()",            // 5
+      "  .then(() => {",              // 6
+      '    console.log("마이크로 1");', // 7
+      "  })",                         // 8
+      "  .then(() => {",              // 9
+      '    console.log("마이크로 2");', // 10
+      "  });",                        // 11
+      "",                             // 12
+      'console.log("동기");',         // 13
+    ],
+    steps: [
+      {
+        line: null,
+        callstack: [],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: [],
+        note: "실행 전이에요.",
+      },
+      {
+        line: 1,
+        callstack: ["setTimeout"],
+        webApis: ["타이머 (0ms)"],
+        micro: [],
+        task: [],
+        output: [],
+        note: "setTimeout이 콜백을 타이머에 맡겨요.",
+      },
+      {
+        line: 5,
+        callstack: ["Promise.then"],
+        webApis: ["타이머 (0ms)"],
+        micro: ["then 콜백 1"],
+        task: [],
+        output: [],
+        note: "이미 이행된 프로미스라 첫 then 콜백은 바로 마이크로태스크 큐로. 두 번째 then은 앞 콜백이 끝나야 해서 예약만 돼요.",
+      },
+      {
+        line: 13,
+        callstack: ["console.log"],
+        webApis: ["타이머 (0ms)"],
+        micro: ["then 콜백 1"],
+        task: [],
+        output: ["동기"],
+        note: "동기 코드가 먼저예요.",
+      },
+      {
+        line: null,
+        callstack: [],
+        webApis: [],
+        micro: ["then 콜백 1"],
+        task: ["setTimeout 콜백"],
+        output: ["동기"],
+        note: "동기 코드 끝. 타이머 콜백은 태스크 큐에 줄을 섰어요. 두 큐에 하나씩 — 이벤트 루프는 어느 쪽부터 볼까요?",
+      },
+      {
+        line: 7,
+        callstack: ["then 콜백 1"],
+        webApis: [],
+        micro: [],
+        task: ["setTimeout 콜백"],
+        output: ["동기", "마이크로 1"],
+        note: "마이크로태스크가 먼저예요. 첫 then 콜백이 새치기했어요.",
+      },
+      {
+        line: 9,
+        callstack: [],
+        webApis: [],
+        micro: ["then 콜백 2"],
+        task: ["setTimeout 콜백"],
+        output: ["동기", "마이크로 1"],
+        note: "첫 콜백이 끝나자 두 번째 then 콜백이 마이크로태스크 큐에 들어와요. 비우는 도중에 들어와도 지금 차례에 같이 처리돼요.",
+      },
+      {
+        line: 10,
+        callstack: ["then 콜백 2"],
+        webApis: [],
+        micro: [],
+        task: ["setTimeout 콜백"],
+        output: ["동기", "마이크로 1", "마이크로 2"],
+        note: "새치기가 이어져요. 마이크로태스크 큐가 빌 때까지 태스크는 계속 대기예요.",
+      },
+      {
+        line: null,
+        callstack: [],
+        webApis: [],
+        micro: [],
+        task: ["setTimeout 콜백"],
+        output: ["동기", "마이크로 1", "마이크로 2"],
+        note: "이제야 마이크로태스크 큐가 비었어요.",
+      },
+      {
+        line: 2,
+        callstack: ["setTimeout 콜백"],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: ["동기", "마이크로 1", "마이크로 2", "태스크"],
+        note: "드디어 태스크 차례. 0ms짜리 타이머가 제일 늦게 실행됐어요.",
+      },
+      {
+        line: null,
+        callstack: [],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: ["동기", "마이크로 1", "마이크로 2", "태스크"],
+        note: "끝. 마이크로태스크 큐는 \"다 비울 때까지\" 우선이에요.",
+      },
+    ],
+  },
+
+  // async/await 분리 — await가 함수를 반으로 가르는 순간 (패널: 풀 구성, FR-014)
+  "async-await-split": {
+    id: "async-await-split",
+    title: "await는 함수를 반으로 갈라요",
+    code: [
+      "async function order() {",     // 1
+      '  console.log("주문 접수");',  // 2
+      "  await Promise.resolve();",   // 3
+      '  console.log("주문 처리");',  // 4
+      "}",                            // 5
+      "",                             // 6
+      "order();",                     // 7
+      'console.log("다음 손님");',    // 8
+    ],
+    steps: [
+      {
+        line: null,
+        callstack: [],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: [],
+        note: "실행 전이에요. 함수 선언은 실행이 아니라 7줄부터 시작해요.",
+      },
+      {
+        line: 7,
+        callstack: ["order"],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: [],
+        note: "order()를 호출해요. async 함수라고 특별할 것 없이 일단 보통 함수처럼 실행돼요.",
+      },
+      {
+        line: 2,
+        callstack: ["order"],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: ["주문 접수"],
+        note: "await 전까지는 전부 동기예요.",
+      },
+      {
+        // FR-014: await 도달 = 프레임 pop, 재개분은 micro에 "함수명 이어서"로
+        line: 3,
+        callstack: [],
+        webApis: [],
+        micro: ["order 이어서"],
+        task: [],
+        output: ["주문 접수"],
+        note: "await에서 order가 반으로 잘려요. 앞부분은 여기서 끝 — 나머지는 \"이어서 할 일\"이 되어 마이크로태스크 큐로 가고, order는 스택에서 내려가요.",
+      },
+      {
+        line: 8,
+        callstack: ["console.log"],
+        webApis: [],
+        micro: ["order 이어서"],
+        task: [],
+        output: ["주문 접수", "다음 손님"],
+        note: "order를 기다리지 않고 다음 코드가 실행돼요. 스레드는 하나인데 멈추지 않는 이유예요.",
+      },
+      {
+        line: null,
+        callstack: [],
+        webApis: [],
+        micro: ["order 이어서"],
+        task: [],
+        output: ["주문 접수", "다음 손님"],
+        note: "동기 코드 끝. 마이크로태스크 큐에 order의 나머지 반쪽이 기다리고 있어요.",
+      },
+      {
+        line: 3,
+        callstack: ["order"],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: ["주문 접수", "다음 손님"],
+        note: "이벤트 루프가 order를 await 지점부터 다시 스택에 올려요.",
+      },
+      {
+        line: 4,
+        callstack: ["order"],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: ["주문 접수", "다음 손님", "주문 처리"],
+        note: "나머지 반이 이어서 실행돼요.",
+      },
+      {
+        line: null,
+        callstack: [],
+        webApis: [],
+        micro: [],
+        task: [],
+        output: ["주문 접수", "다음 손님", "주문 처리"],
+        note: "끝. await는 함수를 반으로 갈라 뒷부분을 마이크로태스크로 보내는 문법 설탕이에요.",
+      },
+    ],
+  },
 };
