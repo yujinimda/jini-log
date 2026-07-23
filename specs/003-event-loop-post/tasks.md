@@ -19,53 +19,53 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 레인 브랜치 3개 생성 (`lane/003-a-simulator`, `lane/003-b-tests`, `lane/003-c-post` — main 기준, worktree 격리)
+- [x] T001 레인 브랜치 3개 생성 (`lane/003-a-simulator`, `lane/003-b-tests`, `lane/003-c-post` — main 기준, worktree 격리)
 
 ## Phase 2: Foundational (레인 A 선행분 — 모든 스토리의 전제)
 
-- [ ] T002 [A] `components/mdx/event-loop/types.ts` — SimStep·SimExample·SimQuiz·Panel 타입 (data-model.md §1~4, React 의존 금지)
-- [ ] T003 [A] `components/mdx/event-loop/examples-user.ts` — 빈 스텁 먼저 (microtask-priority, async-await-split 자리에 TODO(human) 주석 + 형식 안내, 빈 레코드 export로 병합 무해) — T004가 import하므로 선행 (codex B1)
-- [ ] T004 [A] `components/mdx/event-loop/examples.ts` — 위임 예제 5개(intro-quiz, callstack-only, settimeout-webapi, task-queue-loop, final-quiz) + quizzes 레코드(intro·final) + `examples-user.ts` 병합 export. 형식 시범 예제는 callstack-only. FR-014 await 규칙·I1~I8 준수, note는 한 줄 설명
+- [x] T002 [A] `components/mdx/event-loop/types.ts` — SimStep·SimExample·SimQuiz·Panel 타입 (data-model.md §1~4, React 의존 금지)
+- [x] T003 [A] `components/mdx/event-loop/examples-user.ts` — 빈 스텁 먼저 (microtask-priority, async-await-split 자리에 TODO(human) 주석 + 형식 안내, 빈 레코드 export로 병합 무해) — T004가 import하므로 선행 (codex B1)
+- [x] T004 [A] `components/mdx/event-loop/examples.ts` — 위임 예제 5개(intro-quiz, callstack-only, settimeout-webapi, task-queue-loop, final-quiz) + quizzes 레코드(intro·final) + `examples-user.ts` 병합 export. 형식 시범 예제는 callstack-only. FR-014 await 규칙·I1~I8 준수, note는 한 줄 설명
 
 ## Phase 3: User Story 1 — 시뮬레이터 (P1, 레인 A)
 
 **Goal**: 글 어디서든 `<EventLoopSimulator example panels>` 삽입 시 스텝 탐색 가능
 **Independent Test**: 임의 예제를 처음~끝 스텝 이동하며 패널 갱신 확인 (quickstart §2)
 
-- [ ] T005 [P] [US1] `components/mdx/event-loop/panes/code-pane.tsx` — 줄 렌더 + 현재 줄 하이라이트 (R2: 구문 강조 없음, zinc-900 톤)
-- [ ] T006 [P] [US1] `components/mdx/event-loop/panes/stack-pane.tsx` — 콜스택 (끝=최상단 시각화)
-- [ ] T007 [P] [US1] `components/mdx/event-loop/panes/queue-pane.tsx` — webApis/micro/task 공용 (라벨·앞=다음 실행 표시)
-- [ ] T008 [P] [US1] `components/mdx/event-loop/panes/output-pane.tsx` — 누적 출력
-- [ ] T009 [P] [US1] `components/mdx/event-loop/panes/controls.tsx` — 이전/다음/처음부터 (경계 비활성, aria-label)
-- [ ] T010 [US1] `components/mdx/event-loop/event-loop-simulator.tsx` — "use client", stepIndex useState, panels 콤마 문자열 파싱, 미존재 example/panel 에러 박스(FR-004), 키보드 ←/→(R8: tabIndex+포커스 스코프), note aria-live, 모바일 세로 스택, dark:·motion-reduce: 대응 (contracts/mdx-components.md 계약 전체)
-- [ ] T011 [US1] `components/mdx/event-loop/event-loop-quiz.tsx` — "use client", quiz id 참조, 제출 전 시뮬레이터 잠금 플레이스홀더 → 제출 후 맞음/틀림+시뮬레이터 (FR-012/013, R3)
-- [ ] T012 [US1] `components/mdx/registry.ts` — EventLoopSimulator·EventLoopQuiz 등록 (contracts 계약)
-- [ ] T013 [US1] 레인 A 자체 검증: `pnpm lint && pnpm build` + dev 서버에서 임시 MDX로 두 컴포넌트 수동 스모크 → codex-review → PR #A
+- [x] T005 [P] [US1] `components/mdx/event-loop/panes/code-pane.tsx` — 줄 렌더 + 현재 줄 하이라이트 (R2: 구문 강조 없음, zinc-900 톤)
+- [x] T006 [P] [US1] `components/mdx/event-loop/panes/stack-pane.tsx` — 콜스택 (끝=최상단 시각화)
+- [x] T007 [P] [US1] `components/mdx/event-loop/panes/queue-pane.tsx` — webApis/micro/task 공용 (라벨·앞=다음 실행 표시)
+- [x] T008 [P] [US1] `components/mdx/event-loop/panes/output-pane.tsx` — 누적 출력
+- [x] T009 [P] [US1] `components/mdx/event-loop/panes/controls.tsx` — 이전/다음/처음부터 (경계 비활성, aria-label)
+- [x] T010 [US1] `components/mdx/event-loop/event-loop-simulator.tsx` — "use client", stepIndex useState, panels 콤마 문자열 파싱, 미존재 example/panel 에러 박스(FR-004), 키보드 ←/→(R8: tabIndex+포커스 스코프), note aria-live, 모바일 세로 스택, dark:·motion-reduce: 대응 (contracts/mdx-components.md 계약 전체)
+- [x] T011 [US1] `components/mdx/event-loop/event-loop-quiz.tsx` — "use client", quiz id 참조, 제출 전 시뮬레이터 잠금 플레이스홀더 → 제출 후 맞음/틀림+시뮬레이터 (FR-012/013, R3)
+- [x] T012 [US1] `components/mdx/registry.ts` — EventLoopSimulator·EventLoopQuiz 등록 (contracts 계약)
+- [x] T013 [US1] 레인 A 자체 검증: `pnpm lint && pnpm build` + dev 서버에서 임시 MDX로 두 컴포넌트 수동 스모크 → codex-review → PR #A
 
 ## Phase 4: User Story 3 — 정확성 검증 (P3이지만 머지 2순위 — C의 채점자, 레인 B)
 
 **Goal**: 시뮬레이션 거짓말·참조 오타를 커밋 전에 기계 검출
 **Independent Test**: 스텝 하나를 의도적으로 틀리게 → 실패, 원복 → 통과 (quickstart §1)
 
-- [ ] T014 [US3] `tests/helpers/event-loop-runner.ts` — quiescence 러너 (R4: console/setTimeout/queueMicrotask 주입+대기 카운터, 비화이트리스트 글로벌 undefined shadowing, 1000턴 상한)
-- [ ] T015 [P] [US3] `tests/unit/event-loop-examples.test.ts` — 전 예제 FR-009 실행 대조 + FR-010 불변식 I1~I5 + I8 금지 식별자 정적 스캔 (examples-user 병합분 포함 — 스텁이면 해당 id skip)
-- [ ] T016 [P] [US3] `tests/unit/event-loop-quiz-data.test.ts` + `tests/unit/event-loop-post.test.ts` — I9/I10 퀴즈 정합, 글 MDX example/quiz/panels 참조·Callout 2종·Collapse 부록·"지금은 이해 안 되는 게 정상" 카피(US2-AC4) 정적 검증, `tests/e2e/event-loop.spec.ts` — 렌더·조작·퀴즈 해금 스모크 (FR-011). **글 의존 테스트는 전부 존재 검사 후 lazy read + skip — eager import 금지** (B 머지 시점 그린 보장)
-- [ ] T017 [US3] 레인 B 검증: `pnpm lint && pnpm build && pnpm test`(글 부재 skip 동작 확인 포함) → codex-review → PR #B
+- [x] T014 [US3] `tests/helpers/event-loop-runner.ts` — quiescence 러너 (R4: console/setTimeout/queueMicrotask 주입+대기 카운터, 비화이트리스트 글로벌 undefined shadowing, 1000턴 상한)
+- [x] T015 [P] [US3] `tests/unit/event-loop-examples.test.ts` — 전 예제 FR-009 실행 대조 + FR-010 불변식 I1~I5 + I8 금지 식별자 정적 스캔 (examples-user 병합분 포함 — 스텁이면 해당 id skip)
+- [x] T016 [P] [US3] `tests/unit/event-loop-quiz-data.test.ts` + `tests/unit/event-loop-post.test.ts` — I9/I10 퀴즈 정합, 글 MDX example/quiz/panels 참조·Callout 2종·Collapse 부록·"지금은 이해 안 되는 게 정상" 카피(US2-AC4) 정적 검증, `tests/e2e/event-loop.spec.ts` — 렌더·조작·퀴즈 해금 스모크 (FR-011). **글 의존 테스트는 전부 존재 검사 후 lazy read + skip — eager import 금지** (B 머지 시점 그린 보장)
+- [x] T017 [US3] 레인 B 검증: `pnpm lint && pnpm build && pnpm test`(글 부재 skip 동작 확인 포함) → codex-review → PR #B
 
 ## Phase 5: User Story 2 — 글 + 사용자 파트 (P2, 레인 C, 머지 3순위)
 
 **Goal**: 서사 완결된 글 게시, 핵심 예제 2개는 작성자가 직접
 **Independent Test**: quickstart §2 수동 체크리스트 전체
 
-- [ ] T018 [US2] `content/posts/js-event-loop.mdx` 초안 — 서사 7단계(FR-001), 섹션별 "실무에서는"/"생각해볼 점" Callout(FR-006), Node 심화 Collapse(FR-007), 시뮬레이터 점진 패널·퀴즈 2개 삽입, 도입 퀴즈 해설에 "지금은 이해 안 되는 게 정상" 카피(US2-AC4). **말투: 사용자 구어체 해요체, 이모지 금지, AI 상투구 금지 (R9)**
-- [ ] T019 [US2] 시작 전 레인 C에 main rebase(B 머지분 흡수 — 채점 테스트 확보). `components/mdx/event-loop/examples-user.ts`에 microtask-priority·async-await-split 스텝 작성 — 형식은 callstack-only 참고, `pnpm test`가 채점 (FR-009/010/014). ~~사용자 직접~~ → **위임** (2026-07-23 사용자 지시)
-- [ ] T020 [US2] 글 초안 최종 다듬기 (말투 R9·내용 정합) — 사용자 검수는 게시 후 가능하도록 비블로킹 처리 (2026-07-23 사용자 지시)
-- [ ] T021 [US2] 레인 C 검증: `pnpm lint && pnpm build && pnpm test && pnpm test:e2e` 전체 그린 → codex-review → PR #C
+- [x] T018 [US2] `content/posts/js-event-loop.mdx` 초안 — 서사 7단계(FR-001), 섹션별 "실무에서는"/"생각해볼 점" Callout(FR-006), Node 심화 Collapse(FR-007), 시뮬레이터 점진 패널·퀴즈 2개 삽입, 도입 퀴즈 해설에 "지금은 이해 안 되는 게 정상" 카피(US2-AC4). **말투: 사용자 구어체 해요체, 이모지 금지, AI 상투구 금지 (R9)**
+- [x] T019 [US2] 시작 전 레인 C에 main rebase(B 머지분 흡수 — 채점 테스트 확보). `components/mdx/event-loop/examples-user.ts`에 microtask-priority·async-await-split 스텝 작성 — 형식은 callstack-only 참고, `pnpm test`가 채점 (FR-009/010/014). ~~사용자 직접~~ → **위임** (2026-07-23 사용자 지시)
+- [x] T020 [US2] 글 초안 최종 다듬기 (말투 R9·내용 정합) — 사용자 검수는 게시 후 가능하도록 비블로킹 처리 (2026-07-23 사용자 지시)
+- [x] T021 [US2] 레인 C 검증: `pnpm lint && pnpm build && pnpm test && pnpm test:e2e` 전체 그린 → codex-review → PR #C
 
 ## Phase 6: Polish & 배포
 
-- [ ] T022 스토리 순서대로 PR 머지 (A→B→C, 머지마다 main rebase+테스트 재확인), 머지 후 통합 E2E 1회
-- [ ] T023 Vercel 프리뷰에서 quickstart §2·§5 확인(다크·모바일 포함) → 프로덕션 확인 → 완료 보고
+- [x] T022 스토리 순서대로 PR 머지 (A→B→C, 머지마다 main rebase+테스트 재확인), 머지 후 통합 E2E 1회
+- [x] T023 Vercel 프리뷰에서 quickstart §2·§5 확인(다크·모바일 포함) → 프로덕션 확인 → 완료 보고
 
 ## Dependencies
 
