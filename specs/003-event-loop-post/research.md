@@ -16,19 +16,25 @@ Phase 0 — 기술 미지수 해소. 모든 결정은 spec.md의 FR/grilling 결
 
 ## R3. 퀴즈-시뮬레이터 결합 방식 (FR-013)
 
-- **Decision**: `EventLoopQuiz`가 자신의 내부에서 `EventLoopSimulator`를 렌더한다. props: `example`(공유), `choices`, `answerIndex`. 제출 전에는 시뮬레이터 대신 잠금 플레이스홀더("예측을 제출하면 열려요")를 표시, 제출 후 맞음/틀림 피드백과 함께 시뮬레이터 렌더. 상태는 Quiz의 로컬 useState(제출 여부·선택 인덱스)로 충분 — 페이지 이탈 시 초기화되는 것은 허용.
+- **Decision**: `EventLoopQuiz`가 자신의 내부에서 `EventLoopSimulator`를 렌더한다. **props는 `quiz`(id 문자열) 하나** — 보기·정답·결합 예제는 `examples.ts`의 `quizzes` 레코드(SimQuiz)에 두어 단위 테스트가 "정답 보기 = 예제 최종 출력"을 검증할 수 있게 한다 (최종 계약은 contracts/mdx-components.md, 데이터 형태는 data-model.md §4). 제출 전에는 시뮬레이터 대신 잠금 플레이스홀더("예측을 제출하면 열려요")를 표시, 제출 후 맞음/틀림 피드백과 함께 시뮬레이터 렌더. 상태는 Quiz의 로컬 useState(제출 여부·선택 인덱스)로 충분 — 페이지 이탈 시 초기화되는 것은 허용.
 - **Rationale**: 잠금이 퀴즈의 책임이라는 grilling Q1 결정의 직역. 별도 상태 공유 장치(context 등) 없이 부모-자식 합성으로 끝난다.
 - **Alternatives considered**: 퀴즈와 시뮬레이터를 형제로 두고 context로 해금 신호 공유 — MDX에서 두 컴포넌트의 짝을 글 작성자가 맞춰야 해서 실수 여지, 기각. 제출 상태 localStorage 보존 — YAGNI.
 
-## R4. 출력 순서 대조 테스트 실행 방법 (FR-009)
+## R4. 출력 순서 대조 테스트 실행 방법 (FR-009) — codex BLOCKED 반영 개정
 
-- **Decision**: Vitest(node)에서 각 예제의 `code.join("\n")`을 `new Function("console", src)`로 감싸 가짜 `console`(호출 인자를 배열에 수집)을 주입해 실행한다. 비동기 완료 대기는 매크로태스크 2틱 flush(`await new Promise(r => setTimeout(r, 0))` 반복 + 마지막에 여유 1회)로 처리하고, 수집된 출력을 `steps.at(-1).output`과 비교한다.
-- **Rationale**: 예제 API가 결정적 화이트리스트(console.log, setTimeout, Promise, async/await, queueMicrotask — grilling Q3)로 한정되므로 실제 타이머로도 결정적이다. setTimeout 지연은 예제에서 0(또는 소수 ms)만 사용 → flush 대기가 짧고 안정적.
-- **Alternatives considered**: vi.useFakeTimers — Promise/타이머 인터리빙이 실제 런타임과 미묘하게 달라질 수 있어(검증 대상이 바로 그 인터리빙) 실제 타이머 채택. Worker/자식 프로세스 격리 — 예제가 신뢰 코드(레포 내 데이터)라 불필요.
+- **Decision**: **quiescence 러너** — Vitest(node)에서 각 예제의 `code.join("\n")`을 `new Function("console", "setTimeout", "queueMicrotask", src)`로 감싸고, 세 글로벌을 전부 계측 버전으로 주입한다:
+  - `console`: 호출 인자를 배열에 수집
+  - `setTimeout`: 스케줄 시 대기 카운터 +1, 콜백 완료 후 -1 (실제 setTimeout(fn, 0)에 위임)
+  - `queueMicrotask`: 동일하게 카운트 (실제 queueMicrotask에 위임)
+  - 러너는 Promise를 반환하고, **매크로태스크 턴마다 카운터를 확인해 0이 되는 순간 완료로 판정**한다. 확인 자체가 매크로태스크(실제 setTimeout(0))에서 돌므로, 마지막 콜백이 유발한 마이크로태스크 체인은 판정 전에 반드시 소진된다 — "몇 틱 기다리기" 추정 없이 종료가 결정적.
+  - 무한 스케줄 방어: 상한(예: 1000턴) 초과 시 해당 예제 이름을 박아 실패.
+- **Rationale**: codex 크로스리뷰 BLOCKED — flush 틱 수 추정은 타이머 중첩 깊이에 의존하는 휴리스틱이라 FR-009가 "증명"이 못 된다. 대기 카운터는 예제 API가 화이트리스트(grilling Q3)로 한정되어 비동기 진입점이 전부 주입 가능하다는 사실을 이용한 정확한 완료 계약이다. Promise/async-await가 만드는 마이크로태스크는 카운트하지 않아도 되는 이유: 마이크로태스크는 다음 매크로태스크(판정 시점) 전에 항상 전부 소진되는 것이 런타임 보장이기 때문.
+- **완료 계약의 전제 (data-model I8에 계약으로 명시)**: 예제 코드의 비동기 진입점은 주입된 `setTimeout`(지연 0만 허용)·`queueMicrotask`·Promise 체인뿐이어야 한다. 다른 진입점(setInterval, fetch 등)은 화이트리스트 위반.
+- **Alternatives considered**: 고정 틱 flush — 휴리스틱, 기각(BLOCKED 사유). vi.useFakeTimers — Promise/타이머 인터리빙이 실제 런타임과 달라질 수 있어(검증 대상이 바로 그 인터리빙) 기각. Worker 격리 — 예제가 레포 내 신뢰 데이터라 불필요.
 
 ## R5. 예제 이름 참조와 오류 처리 (FR-004)
 
-- **Decision**: `examples.ts`가 `Record<string, SimExample>`를 export. 시뮬레이터·퀴즈는 렌더 시 이름을 lookup하고, 없으면 눈에 띄는 에러 박스("예제 '<이름>'을 찾을 수 없습니다 — examples.ts 등록 목록 확인")를 렌더한다. 추가 방어선: 글에 쓰인 이름의 유효성은 E2E(FR-011)가 실제 글 페이지를 열며 함께 확인된다.
+- **Decision**: `examples.ts`가 `Record<string, SimExample>`를 export. 시뮬레이터·퀴즈는 렌더 시 이름을 lookup하고, 없으면 눈에 띄는 에러 박스("예제 '<이름>'을 찾을 수 없습니다 — examples.ts 등록 목록 확인")를 렌더한다. **1차 방어선은 정적 테스트** (codex W2 반영): `tests/unit/event-loop-post.test.ts`가 글 MDX 원문에서 `EventLoopSimulator`/`EventLoopQuiz` 사용부의 `example`/`quiz`/`panels` 값을 추출해 examples.ts 레코드·Panel 타입과 대조한다 — 오타가 "에러 박스 뜬 채 배포"되는 경로를 커밋 전에 차단. E2E(FR-011)는 2차 방어선.
 - **Rationale**: MDX 검증 파이프라인(validateMdx)은 컴포넌트 이름까지만 검사하므로 props 오타는 런타임 방어가 최선. 조용한 실패 금지는 스펙 명시.
 - **Alternatives considered**: validateMdx를 확장해 example prop 값까지 검사 — 파이프라인 공용 코드 수정 범위가 커지고 이번 글 전용 로직이 공용 검증에 새는 구조라 기각(추후 필요 시 별도 피처).
 

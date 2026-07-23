@@ -74,8 +74,10 @@ content/posts/
 
 tests/
 ├── unit/
-│   ├── event-loop-examples.test.ts   # FR-009 출력 순서 대조 + FR-010 무결성
-│   └── event-loop-quiz-data.test.ts  # 퀴즈 정답이 예제 최종 출력과 일치
+│   ├── event-loop-examples.test.ts   # FR-009 출력 순서 대조(quiescence 러너) + FR-010 무결성
+│   ├── event-loop-quiz-data.test.ts  # 퀴즈 정답이 예제 최종 출력과 일치
+│   └── event-loop-post.test.ts       # 글 MDX 정적 검증: example/quiz/panels 참조 유효성,
+│                                     #   섹션별 Callout 2종·Collapse 부록 존재 (codex W2/W3)
 └── e2e/
     └── event-loop.spec.ts            # FR-011 렌더·조작 스모크 + 퀴즈 해금
 ```

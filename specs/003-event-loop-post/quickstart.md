@@ -10,8 +10,9 @@ pnpm test
 
 기대 결과:
 
-- `tests/unit/event-loop-examples.test.ts` — 예제 6~7개 전부: 실제 실행 출력 = 마지막 스텝 output, 무결식 I1~I5 통과
+- `tests/unit/event-loop-examples.test.ts` — 예제 6~7개 전부: quiescence 러너로 실제 실행한 출력 = 마지막 스텝 output, 무결식 I1~I5 통과
 - `tests/unit/event-loop-quiz-data.test.ts` — 퀴즈 2개: 정답 보기 = 예제 최종 출력 (I9/I10)
+- `tests/unit/event-loop-post.test.ts` — 글 MDX의 example/quiz/panels 참조가 전부 examples.ts에 존재, 개념 섹션마다 "실무에서는"/"생각해볼 점" Callout, Node 부록 Collapse 존재
 
 음성 케이스 확인(선택): `examples.ts`에서 아무 스텝의 output 항목 하나를 지우고 다시 실행 → 해당 예제 이름이 박힌 실패가 나야 정상. 원복 후 통과 확인.
 
