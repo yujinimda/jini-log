@@ -43,6 +43,8 @@ const publishedPost = {
 };
 
 function arrangeDefault() {
+  // 조회 기록은 프로덕션 배포에서만 동작한다 (C2) — 기본 케이스는 그 런타임을 가정
+  vi.stubEnv("VERCEL_ENV", "production");
   vi.mocked(isOperator).mockResolvedValue(false);
   vi.mocked(incrementView).mockResolvedValue(undefined);
   vi.mocked(getPublishedPosts).mockResolvedValue([publishedPost]);
@@ -60,6 +62,7 @@ function postViews(body?: BodyInit | null, headers?: HeadersInit) {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describeRoute("POST /api/views", () => {
@@ -165,6 +168,26 @@ describeRoute("POST /api/views", () => {
     expect(await noBodyResponse.text()).toBe("");
     expect(invalidJsonResponse.status).toBe(204);
     expect(await invalidJsonResponse.text()).toBe("");
+    expect(incrementView).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["로컬 개발 (VERCEL_ENV 없음)", undefined],
+    ["preview 배포", "preview"],
+    ["development 배포", "development"],
+  ])("%s에서는 기록하지 않고 204로 응답한다", async (_label, vercelEnv) => {
+    arrangeDefault();
+    // C2: 로컬·preview가 프로덕션 조회수를 오염시키지 않아야 한다
+    if (vercelEnv === undefined) vi.stubEnv("VERCEL_ENV", "");
+    else vi.stubEnv("VERCEL_ENV", vercelEnv);
+
+    const response = await postViews(JSON.stringify({ slug: "hello-world" }), {
+      "content-type": "application/json",
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    });
+
+    expect(response.status).toBe(204);
     expect(incrementView).not.toHaveBeenCalled();
   });
 

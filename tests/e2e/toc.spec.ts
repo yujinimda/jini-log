@@ -58,11 +58,9 @@ test.describe("본문 목차", () => {
       .toBeGreaterThan(0);
   });
 
-  test("h2가 없는 글에서는 목차를 표시하지 않는다", async ({ page }) => {
-    await page.goto("/posts/test");
-
-    await expect(
-      page.locator('nav[aria-label*="목차"], aside:has-text("목차"), section:has-text("목차"), [data-testid="toc"]'),
-    ).toHaveCount(0);
-  });
+  // "h2가 없는 글에서는 목차를 표시하지 않는다" e2e 케이스는 유일한 픽스처였던
+  // content/posts/test.mdx를 삭제하면서 함께 제거했다 (C2). SSG + dynamicParams=false라
+  // 빌드 시점에 존재하는 발행 글만 방문 가능해서 런타임 픽스처를 만들 수 없다.
+  // 대체 커버리지: tests/unit/toc.test.ts "절 제목이 없으면 빈 배열을 반환한다"
+  // + contracts/ui.md의 "<Toc entries> 빈 배열 → null 렌더" 계약.
 });

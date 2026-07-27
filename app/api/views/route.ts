@@ -14,6 +14,20 @@ function noContent(): Response {
 }
 
 /**
+ * 조회를 기록해도 되는 런타임인가 — 프로덕션 배포에서만 참.
+ *
+ * 로컬 .env.local과 프로덕션이 같은 Supabase 프로젝트를 보기 때문에, 가드가 없으면
+ * `pnpm dev`로 글을 열어보는 것만으로 실제 조회수가 올라간다. preview 배포도 같은
+ * 이유로 제외한다(PR 미리보기 열람이 지표를 오염시키지 않도록).
+ *
+ * NODE_ENV 대신 VERCEL_ENV로 판정하는 이유: preview 배포도 NODE_ENV는 "production"이라
+ * NODE_ENV만으로는 preview 열람을 걸러내지 못한다.
+ */
+function isCountingRuntime(): boolean {
+  return process.env.VERCEL_ENV === "production";
+}
+
+/**
  * 전체 글의 누적 조회수를 한 번에 반환 — 클라이언트가 글마다 요청하지 않도록 맵으로 준다.
  * Supabase 장애가 독자 화면을 깨지 않도록 실패해도 빈 맵으로 200 (POST와 같은 정책).
  */
@@ -29,6 +43,9 @@ export async function GET(): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    // 로컬 개발·preview 배포 제외 — 프로덕션 지표 오염 방지 (C2)
+    if (!isCountingRuntime()) return noContent();
+
     // 운영자 세션 제외 (FR-010)
     if (await isOperator()) return noContent();
 
