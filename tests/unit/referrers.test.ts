@@ -62,6 +62,20 @@ describe("classifyReferrerHost", () => {
     expect(classifyReferrerHost("localhost", SELF)).toBe("other");
   });
 
+  it.each(["google.co.jp", "www.google.de", "google.com.br", "images.google.fr"])(
+    "구글 국가 도메인 %s도 google로 분류한다",
+    (host) => {
+      // 접미사 목록으로는 다 담을 수 없어 정규식으로 처리 (codex-review 반영)
+      expect(classifyReferrerHost(host, SELF)).toBe("google");
+    },
+  );
+
+  it("google이 들어가도 구글이 아닌 도메인은 오분류하지 않는다", () => {
+    expect(classifyReferrerHost("mygoogle.example.com", SELF)).toBe("other");
+    expect(classifyReferrerHost("google.example.com", SELF)).toBe("other");
+    expect(classifyReferrerHost("notgoogle.com", SELF)).toBe("other");
+  });
+
   it("서브도메인·www·대소문자와 무관하게 같은 출처로 묶는다", () => {
     expect(classifyReferrerHost("google.com", SELF)).toBe("google");
     expect(classifyReferrerHost("images.google.com", SELF)).toBe("google");

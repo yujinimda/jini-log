@@ -4,6 +4,12 @@ import { useEffect } from "react";
 
 const REFERRER_DONE_KEY = "referrer:attributed";
 
+// sessionStorage 폴백 — 프라이빗 모드 등에서 storage가 막히면 세션당 1회 가드가
+// 통째로 사라져 세션의 모든 글이 같은 유입으로 중복 집계된다. 모듈 스코프 플래그는
+// 클라이언트 내비게이션 동안 유지되므로 최소한 같은 문서 세션에서는 1회를 보장한다
+// (codex-review 반영). 새로고침하면 초기화되는 한계는 남는다.
+let referrerAttributed = false;
+
 /**
  * 유입 호스트 — 세션의 **첫 비콘에서만** 반환하고 이후에는 undefined.
  *
@@ -16,11 +22,14 @@ const REFERRER_DONE_KEY = "referrer:attributed";
  * 원본 URL에 경로·검색어가 남아 있을 수 있다. 그것을 네트워크로 내보내지 않는다.
  */
 function takeReferrerHost(): string | undefined {
+  if (referrerAttributed) return undefined;
+  referrerAttributed = true;
+
   try {
     if (sessionStorage.getItem(REFERRER_DONE_KEY)) return undefined;
     sessionStorage.setItem(REFERRER_DONE_KEY, "1");
   } catch {
-    // storage 불가(프라이빗 모드 등) — 귀속 정확도보다 기록 누락 방지를 택한다
+    // storage 불가 — 위 모듈 플래그가 이 문서 세션 동안 중복을 막는다
   }
 
   const referrer = document.referrer;

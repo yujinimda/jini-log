@@ -59,10 +59,15 @@ export const REFERRER_LABELS: Record<ReferrerKey, string> = {
   other: "기타",
 };
 
-/** 호스트 접미사 → 키. 서브도메인·국가 도메인을 함께 잡으려고 접미사로 비교한다. */
+/**
+ * 구글 국가 도메인 — google.com·google.co.kr 외에 google.co.jp·google.de 등이 있고
+ * 접미사 목록으로는 다 담을 수 없다. 마지막 라벨들이 google.<tld> 형태면 구글로 본다
+ * (codex-review 반영: 주석은 "국가 도메인 지원"인데 실제로는 2개만 잡고 있었다).
+ */
+const GOOGLE_HOST = /(^|\.)google\.[a-z]{2,3}(\.[a-z]{2})?$/;
+
+/** 호스트 접미사 → 키. 서브도메인을 함께 잡으려고 접미사로 비교한다. */
 const HOST_RULES: ReadonlyArray<readonly [string, ReferrerKey]> = [
-  ["google.com", "google"],
-  ["google.co.kr", "google"],
   ["naver.com", "naver"],
   ["daum.net", "daum"],
   ["bing.com", "bing"],
@@ -99,6 +104,8 @@ export function classifyReferrerHost(host: string, selfHost: string | null): Ref
   // 호스트명이 아닌 값(전체 URL·조작된 문자열)은 받지 않는다.
   // 전체 URL은 "/" ":" 등이 섞여 이 문자셋에서 걸러진다.
   if (!/^[a-z0-9.-]+$/.test(normalized)) return "other";
+
+  if (GOOGLE_HOST.test(normalized)) return "google";
 
   for (const [suffix, key] of HOST_RULES) {
     if (normalized === suffix || normalized.endsWith(`.${suffix}`)) return key;

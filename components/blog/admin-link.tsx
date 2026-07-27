@@ -24,7 +24,10 @@ function fetchIsOperator(): Promise<boolean> {
     .then(async (res) => {
       if (!res.ok) return false;
       const session = (await res.json()) as SessionResponse | null;
-      // 세션 존재만으로 믿지 않는다 — login 클레임이 있어야 운영자
+      // login 클레임 유무만 본다. 이 값이 **현재** ADMIN_GITHUB_LOGIN과 같은지는
+      // 확인하지 않으므로, env를 바꾼 뒤 만료 전 세션에는 "대시보드"가 잘못 뜰 수 있다.
+      // 표시용 힌트일 뿐이고 인가는 middleware·signIn 콜백이 하므로 그 경우에도
+      // 클릭하면 로그인으로 되돌아간다 (codex-review 반영 — 의도된 한계).
       return typeof session?.login === "string" && session.login.length > 0;
     })
     .catch(() => {
