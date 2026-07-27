@@ -16,7 +16,7 @@ import {
   type GitHubFile,
 } from "@/lib/github";
 import type { PostActionRequest, PostActionResponse, PostFrontmatter } from "@/lib/types";
-import { validatePostInput } from "./validate-post";
+import { validatePostInput, type ValidationMode } from "./validate-post";
 
 export class PostActionError extends Error {
   constructor(
@@ -64,7 +64,10 @@ interface ValidatedInput {
 }
 
 /** 2~4단계: slug 불변(발행 글) → frontmatter → MDX */
-async function validateWriteInput(req: PostActionRequest): Promise<ValidatedInput> {
+async function validateWriteInput(
+  req: PostActionRequest,
+  mode: ValidationMode,
+): Promise<ValidatedInput> {
   // 2단계: slug 불변 강제 (FR-016, 서버 강제) — 대상이 발행 글이면 slug 변경 거부
   if (req.originalSlug && req.originalSlug !== req.slug) {
     if (!isValidSlug(req.originalSlug)) {
@@ -81,7 +84,7 @@ async function validateWriteInput(req: PostActionRequest): Promise<ValidatedInpu
   }
 
   // 3~4단계: 판정 로직은 validate API와 공유 (T018)
-  const result = await validatePostInput(req.frontmatter, req.body);
+  const result = await validatePostInput(req.frontmatter, req.body, mode);
   if (!result.ok) {
     fail(result.code === "invalid-frontmatter" ? 400 : 422, result.code, result.message, result.detail);
   }
@@ -89,7 +92,8 @@ async function validateWriteInput(req: PostActionRequest): Promise<ValidatedInpu
 }
 
 async function saveDraft(req: PostActionRequest): Promise<PostActionResponse> {
-  const { frontmatter, body } = await validateWriteInput(req);
+  // 초안은 미완성 상태로도 저장할 수 있어야 한다 (C7) — 형식만 강제하고 필수 여부는 푼다
+  const { frontmatter, body } = await validateWriteInput(req, "draft");
   const source = serializePost(frontmatter, body);
   const targetPath = contentPath("draft", req.slug);
 
@@ -137,7 +141,8 @@ async function saveDraft(req: PostActionRequest): Promise<PostActionResponse> {
 }
 
 async function publish(req: PostActionRequest): Promise<PostActionResponse> {
-  const { frontmatter, body } = await validateWriteInput(req);
+  // 발행은 공개되는 글 — 제목·요약 필수 (C7)
+  const { frontmatter, body } = await validateWriteInput(req, "publish");
   const source = serializePost(frontmatter, body);
   const targetPath = contentPath("published", req.slug);
   const draftPath = contentPath("draft", req.originalSlug ?? req.slug);

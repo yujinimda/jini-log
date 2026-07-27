@@ -51,6 +51,75 @@ export interface ApiErrorInfo {
   detail?: unknown;
 }
 
+/**
+ * 서버 검증 메시지 → 사람 말.
+ *
+ * 서버는 zod 경로를 그대로 붙여 `title: title은 비울 수 없습니다`처럼 필드명을 두 번 말하고,
+ * 소비처는 여기에 코드까지 얹어 `서버 검증 실패 (invalid-frontmatter): ...`로 보여줬다.
+ * 운영자에게 필요한 건 "무엇을 어떻게 고치면 되는가"뿐이다 — 코드와 내부 필드명은 지운다.
+ */
+const FIELD_LABELS: Record<string, string> = {
+  title: "제목",
+  description: "요약",
+  date: "발행일",
+  tags: "태그",
+  slug: "slug",
+};
+
+/** 한글 마지막 글자에 받침이 있는가 — 조사 선택 기준 */
+function hasFinalConsonant(word: string): boolean {
+  const last = word.trim().at(-1);
+  if (!last) return false;
+  const code = last.charCodeAt(0);
+  // 한글 음절 영역이 아니면(영문·숫자 등) 판정하지 않고 받침 없음으로 둔다
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
+}
+
+/**
+ * 라벨을 바꾸면 뒤에 붙은 조사가 어긋난다.
+ * "date는" → "발행일는"(X) → "발행일은"(O). 받침 유무로 교정한다.
+ */
+const PARTICLE_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ["은", "는"],
+  ["이", "가"],
+  ["을", "를"],
+  ["과", "와"],
+];
+
+function fixParticle(label: string, rest: string): string {
+  const withFinal = hasFinalConsonant(label);
+  for (const [withBatchim, withoutBatchim] of PARTICLE_PAIRS) {
+    if (rest.startsWith(withBatchim) || rest.startsWith(withoutBatchim)) {
+      const correct = withFinal ? withBatchim : withoutBatchim;
+      return correct + rest.slice(1);
+    }
+  }
+  return rest;
+}
+
+export function humanizeValidationMessage(raw: string): string {
+  return raw
+    .split(";")
+    .map((part) => {
+      const trimmed = part.trim();
+      if (!trimmed) return "";
+      // "title: title은 비울 수 없습니다" → 앞의 경로 라벨 제거
+      const m = /^([a-zA-Z_][\w.]*)\s*:\s*(.+)$/.exec(trimmed);
+      if (!m) return trimmed;
+      const [, field, rest] = m;
+      const label = FIELD_LABELS[field];
+      // 본문에 이미 필드명이 들어 있으면 라벨을 다시 붙이지 않고 자리만 바꾼다
+      if (rest.startsWith(field)) {
+        const tail = rest.slice(field.length);
+        return label ? `${label}${fixParticle(label, tail)}` : rest;
+      }
+      return label ? `${label}: ${rest}` : rest;
+    })
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /** 실패 응답 → 표시용 에러 정보 */
 export async function readApiError(res: Response): Promise<ApiErrorInfo> {
   try {
