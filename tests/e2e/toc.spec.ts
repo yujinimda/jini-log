@@ -4,6 +4,13 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { headingsOf, postWithHeadings } from "./helpers/content";
+
+// 절 제목도 콘텐츠에서 읽는다 — "코드 블록"·"접기/펼치기"는 삭제된 샘플 글의 절이었다 (C5)
+const tocPost = postWithHeadings();
+const sections = tocPost ? headingsOf(tocPost) : [];
+const firstSection = sections[0] ?? "";
+const lastSection = sections.at(-1) ?? "";
 
 const hasToc = existsSync(resolve(__dirname, "../../components/blog/toc.tsx"));
 
@@ -18,37 +25,41 @@ function tocContainer(page: Page): Locator {
 
 test.describe("본문 목차", () => {
   test.skip(!hasToc, "레인 B toc 구현 전까지 skip");
+  test.skip(!tocPost, "절 제목이 있는 발행 글이 없습니다");
 
   test("넓은 화면에서는 목차가 표시된다", async ({ page }) => {
-    await page.goto("/posts/hello-world");
+    await page.goto(`/posts/${tocPost!.slug}`);
 
     const toc = tocContainer(page);
     await expect(toc).toBeVisible();
-    await expect(toc.getByRole("link", { name: "코드 블록" })).toBeVisible();
-    await expect(toc.getByRole("link", { name: "접기/펼치기" })).toBeVisible();
+    // 목차 항목은 글의 h2와 1:1이어야 한다
+    await expect(toc.getByRole("link")).toHaveCount(sections.length);
+    for (const section of sections) {
+      await expect(toc.getByRole("link", { name: section, exact: true })).toBeVisible();
+    }
   });
 
   test("목차 링크를 클릭하면 해당 절로 이동한다", async ({ page }) => {
-    await page.goto("/posts/hello-world");
+    await page.goto(`/posts/${tocPost!.slug}`);
 
     const toc = tocContainer(page);
     await expect(toc).toBeVisible();
 
-    await toc.getByRole("link", { name: "코드 블록" }).click();
+    await toc.getByRole("link", { name: firstSection, exact: true }).click();
 
     await expect(page).toHaveURL(/#.+$/);
 
-    const heading = page.getByRole("heading", { level: 2, name: "코드 블록" });
+    const heading = page.getByRole("heading", { level: 2, name: firstSection, exact: true });
     await expect(heading).toBeInViewport();
   });
 
   test("현재 보고 있는 절이 목차에서 하이라이트된다", async ({ page }) => {
-    await page.goto("/posts/hello-world");
+    await page.goto(`/posts/${tocPost!.slug}`);
 
     const toc = tocContainer(page);
     await expect(toc).toBeVisible();
 
-    const heading = page.getByRole("heading", { level: 2, name: "접기/펼치기" });
+    const heading = page.getByRole("heading", { level: 2, name: lastSection, exact: true });
     await heading.scrollIntoViewIfNeeded();
     await expect(heading).toBeInViewport();
 

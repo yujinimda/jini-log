@@ -2,6 +2,9 @@
 // 근거: quickstart V4, spec US3, SC-003, FR-012, FR-013.
 
 import { expect, test } from "@playwright/test";
+import { anyPost } from "./helpers/content";
+
+const sample = anyPost();
 
 type JsonLdObject = {
   "@type"?: string | string[];
@@ -49,14 +52,14 @@ function getCanonicalHref(html: string): string | undefined {
 
 test.describe("SEO 메타·sitemap·robots·feed·OG", () => {
   test("글 상세 HTML은 title, description, OG, canonical, Article JSON-LD를 포함한다", async ({ request }) => {
-    const response = await request.get("/posts/hello-world");
+    const response = await request.get(`/posts/${sample.slug}`);
     expect(response.status()).toBe(200);
 
     const html = await response.text();
 
-    expect(html).toMatch(/<title[^>]*>[^<]*지니로그 시작[^<]*<\/title>/i);
+    expect(html).toMatch(new RegExp(`<title[^>]*>[^<]*${sample.title}[^<]*</title>`, "i"));
     expect(getMetaContent(html, "name", "description")).toBeTruthy();
-    expect(getMetaContent(html, "property", "og:title")).toContain("지니로그 시작");
+    expect(getMetaContent(html, "property", "og:title")).toContain(sample.title);
     expect(getMetaContent(html, "property", "og:description")).toBeTruthy();
     expect(getMetaContent(html, "property", "og:image")).toBeTruthy();
     expect(getCanonicalHref(html)).toBeTruthy();
@@ -73,7 +76,7 @@ test.describe("SEO 메타·sitemap·robots·feed·OG", () => {
       .find((item): item is JsonLdObject => item !== undefined);
 
     expect(article).toBeTruthy();
-    expect(article?.headline).toContain("지니로그 시작");
+    expect(article?.headline).toContain(sample.title);
   });
 
   test("sitemap.xml은 발행 글 URL을 포함하는 XML을 반환한다", async ({ request }) => {
@@ -83,7 +86,7 @@ test.describe("SEO 메타·sitemap·robots·feed·OG", () => {
     expect(response.headers()["content-type"]).toContain("xml");
 
     const body = await response.text();
-    expect(body).toContain("/posts/hello-world");
+    expect(body).toContain(`/posts/${sample.slug}`);
   });
 
   test("robots.txt는 크롤러 규칙과 sitemap 참조를 반환한다", async ({ request }) => {
@@ -104,12 +107,12 @@ test.describe("SEO 메타·sitemap·robots·feed·OG", () => {
 
     const body = await response.text();
     expect(body).toMatch(/<rss|<feed/i);
-    expect(body).toContain("지니로그 시작");
-    expect(body).toContain("/posts/hello-world");
+    expect(body).toContain(sample.title);
+    expect(body).toContain(`/posts/${sample.slug}`);
   });
 
   test("og:image 메타 URL은 실제 이미지 응답을 반환한다", async ({ request }) => {
-    const postResponse = await request.get("/posts/hello-world");
+    const postResponse = await request.get(`/posts/${sample.slug}`);
     expect(postResponse.status()).toBe(200);
 
     const html = await postResponse.text();

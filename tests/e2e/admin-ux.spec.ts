@@ -225,6 +225,75 @@ test.describe("대시보드 토스트", () => {
     await expect(page.getByText(/GitHub API 오류/)).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "대시보드" })).toBeVisible();
   });
+
+  // 실제로 겪은 버그 — 삭제는 커밋됐는데 "삭제 실패" 토스트가 떴다.
+  // 커밋 이후 단계에서 난 예외를 액션 실패로 오인하면 안 된다.
+  test("커밋 성공 후 후처리가 실패해도 '삭제 실패'로 알리지 않는다", async ({ page }) => {
+    await page.goto("/admin");
+
+    // 응답은 200이지만 body가 JSON이 아니라 res.json() 파싱이 터진다 —
+    // "커밋은 됐는데 이후 단계에서 예외"를 재현하는 가장 단순한 방법
+    await page.route("**/api/admin/posts", async (route) => {
+      const postData = route.request().postData() ?? "";
+      if (route.request().method() === "POST" && /"action"\s*:\s*"delete"/.test(postData)) {
+        await route.fulfill({ status: 200, contentType: "application/json", body: "" });
+        return;
+      }
+      await route.continue();
+    });
+
+    const row = page.locator("tbody tr").first();
+    await row.getByRole("button", { name: "삭제" }).click();
+    await page
+      .locator('[role="dialog"], [role="alertdialog"]')
+      .first()
+      .getByRole("button", { name: /확인|삭제/ })
+      .click();
+
+    const toasts = page.locator('[data-sonner-toast], [role="status"]');
+    await expect(toasts.filter({ hasText: /완료/ }).first()).toBeVisible();
+    await expect(toasts.filter({ hasText: /삭제 실패/ })).toHaveCount(0);
+  });
+
+  test("확인 버튼을 연타해도 삭제 요청은 1번만 나간다", async ({ page }) => {
+    await page.goto("/admin");
+
+    let deleteRequests = 0;
+    await page.route("**/api/admin/posts", async (route) => {
+      const postData = route.request().postData() ?? "";
+      if (route.request().method() === "POST" && /"action"\s*:\s*"delete"/.test(postData)) {
+        deleteRequests += 1;
+        // 응답을 늦춰 연타 구간을 넓힌다
+        await new Promise((r) => setTimeout(r, 400));
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: true,
+            status: "deleted",
+            commitUrl: "https://example.com/c",
+            commitSha: "abc",
+          }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    const row = page.locator("tbody tr").first();
+    await row.getByRole("button", { name: "삭제" }).click();
+
+    const confirm = page
+      .locator('[role="dialog"], [role="alertdialog"]')
+      .first()
+      .getByRole("button", { name: /확인|삭제/ });
+    // 두 번째 클릭은 다이얼로그가 닫히는 중이라 실패할 수 있다 — 무시하고 요청 수만 본다
+    await confirm.click();
+    await confirm.click({ timeout: 1000 }).catch(() => {});
+
+    await expect(page.locator('[data-sonner-toast], [role="status"]').first()).toBeVisible();
+    expect(deleteRequests).toBe(1);
+  });
 });
 
 test.describe("대시보드 정렬", () => {
