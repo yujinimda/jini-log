@@ -3,14 +3,17 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isOperator } from "@/lib/auth";
 import { getPublishedPosts } from "@/lib/content";
-import { incrementView } from "@/lib/views";
+import { getViewTotals, incrementView } from "@/lib/views";
 
 // 레인 B/C가 아직 라우트를 구현하지 않음 — 모듈 부재 시 skip (구현 머지 후 자동 활성화)
 // specifier를 변수로 우회: tsc가 미존재 모듈을 정적 해석하지 않게 함 (vitest는 런타임에 alias 해석)
 const routeFile = path.resolve(__dirname, "../../app/api/views/route.ts");
 const routeSpecifier: string = "@/app/api/views/route";
 const routeModule = existsSync(routeFile)
-  ? ((await import(routeSpecifier)) as { POST: (request: Request) => Promise<Response> })
+  ? ((await import(routeSpecifier)) as {
+      POST: (request: Request) => Promise<Response>;
+      GET: () => Promise<Response>;
+    })
   : null;
 const describeRoute = describe.skipIf(!routeModule);
 
@@ -20,6 +23,8 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/views", () => ({
   incrementView: vi.fn(),
+  // 라우트 모듈이 GET에서도 import한다 — 팩토리에 없으면 named import가 터진다
+  getViewTotals: vi.fn(),
 }));
 
 vi.mock("@/lib/content", () => ({
@@ -34,7 +39,6 @@ const publishedPost = {
   tags: ["blog"],
   status: "published" as const,
   // getPublishedPosts가 PostDerived[]로 확장됨 (002 R6)
-  readingMinutes: 1,
   excerpt: "첫 글",
 };
 
@@ -179,5 +183,33 @@ describeRoute("POST /api/views", () => {
     expect(await response.text()).toBe("");
     expect(incrementView).toHaveBeenCalledTimes(1);
     expect(incrementView).toHaveBeenCalledWith("hello-world");
+  });
+});
+
+describeRoute("GET /api/views", () => {
+  it("글별 누적 조회수 맵을 반환한다", async () => {
+    vi.mocked(getViewTotals).mockResolvedValue({ "hello-world": 12, "js-event-loop": 340 });
+
+    const response = await routeModule!.GET();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ "hello-world": 12, "js-event-loop": 340 });
+  });
+
+  it("조회수 조회가 실패해도 빈 맵으로 200을 반환한다 (독자 화면 보호)", async () => {
+    vi.mocked(getViewTotals).mockRejectedValue(new Error("db down"));
+
+    const response = await routeModule!.GET();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+  });
+
+  it("캐시되지 않도록 no-store로 응답한다", async () => {
+    vi.mocked(getViewTotals).mockResolvedValue({});
+
+    const response = await routeModule!.GET();
+
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 });

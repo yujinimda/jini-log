@@ -19,6 +19,14 @@ export function SiteHeader() {
           <a href="/feed.xml" className="text-zinc-500 transition-colors hover:text-zinc-900">
             RSS
           </a>
+          {/* 로그인 진입점 — /admin은 middleware가 보호하므로 비로그인이면 GitHub OAuth로,
+              이미 운영자 세션이면 곧장 대시보드로 간다. 운영자 외 계정은 lib/auth의
+              signIn 콜백에서 거부되므로 링크가 공개돼도 무방 (FR-008).
+              세션 여부로 문구를 바꾸지 않는 이유: 헤더는 전 페이지 공용이라
+              auth() 호출 시 사이트 전체가 SSG를 잃는다. */}
+          <Link href="/admin" className="text-zinc-500 transition-colors hover:text-zinc-900">
+            로그인
+          </Link>
         </nav>
       </div>
     </header>

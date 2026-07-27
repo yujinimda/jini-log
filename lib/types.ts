@@ -15,8 +15,6 @@ export interface PostMeta extends PostFrontmatter {
  * 홈 카드·검색 인덱스 생성기·글 상세가 공유한다. PostMeta 소비자는 그대로 동작(확장 형태).
  */
 export interface PostDerived extends PostMeta {
-  /** ceil(코드펜스 제거 후 문자 수 / 500), 최소 1분 */
-  readingMinutes: number;
   /** 마크다운·컴포넌트 태그 스트립 후 앞 500자 */
   excerpt: string;
 }

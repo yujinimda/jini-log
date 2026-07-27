@@ -1,4 +1,4 @@
-// 글 상세 (T029 → 002 T011 개편: 세리프 대제목·읽기시간 메타·목차·이전/다음) — 전부 SSG. 소유: 레인 B
+// 글 상세 (T029 → 002 T011 개편: 세리프 대제목·조회수 메타·목차·이전/다음) — 전부 SSG. 소유: 레인 B
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { formatDate } from "@/components/blog/format-date";
@@ -7,6 +7,7 @@ import { postUrl, RSS_ALTERNATE, siteName } from "@/components/blog/site";
 import { TagLink } from "@/components/blog/tag-link";
 import { Toc } from "@/components/blog/toc";
 import { ViewBeacon } from "@/components/blog/view-beacon";
+import { ViewCount } from "@/components/blog/view-count";
 import { getPost, getPublishedPosts } from "@/lib/content";
 import { renderMdx } from "@/lib/mdx";
 import { getToc } from "@/lib/toc";
@@ -93,7 +94,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <span aria-hidden="true" className="text-zinc-300">
             ·
           </span>
-          <span>{post.readingMinutes}분</span>
+          <ViewCount slug={post.slug} />
           {post.tags.length > 0 && (
             <>
               <span aria-hidden="true" className="text-zinc-300">

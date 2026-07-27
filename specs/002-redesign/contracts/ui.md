@@ -26,7 +26,8 @@
 
 ## 파생값 계약 (PostDerived)
 
-- 발행 로더가 `PostDerived = PostMeta + { readingMinutes: number, excerpt: string }`를 반환 — 홈 카드·검색 인덱스 생성기·글 상세가 공유. 파생 계산 지점은 로더 1곳뿐.
+- 발행 로더가 `PostDerived = PostMeta + { excerpt: string }`를 반환 — 홈 카드·검색 인덱스 생성기·글 상세가 공유. 파생 계산 지점은 로더 1곳뿐.
+  - 변경 이력: `readingMinutes` 제거 (spec.md [C1](../spec.md#후속-변경-이력), 2026-07-27). 카드·상세의 그 자리는 조회수(`<ViewCount slug>`)가 차지하며, 조회수는 본문 파생값이 아니라 `GET /api/views`로 클라이언트에서 가져온다 — 공개 페이지의 SSG 유지 목적.
 - 카드 요약: description을 **CSS 2줄 말줄임(line-clamp-2 상당)** 으로 — 카드 높이 해석 여지 없음.
 
 ## 어드민 부품 교체 계약

@@ -2,9 +2,10 @@ import Link from "next/link";
 import type { PostDerived } from "@/lib/types";
 import { formatDate } from "./format-date";
 import { TagLink } from "./tag-link";
+import { ViewCount } from "./view-count";
 
 /** 글 목록 (002 T018 — FR-006) — 홈·태그 페이지 공용, PostDerived 소비 (최신순 정렬은 데이터 소스 책임).
- *  카드 = 세리프 제목 + 요약 2줄(line-clamp) + 날짜·읽기시간·태그. 구분선 리듬 — 박스·그림자 없음 (B1). */
+ *  카드 = 세리프 제목 + 요약 2줄(line-clamp) + 날짜·조회수·태그. 구분선 리듬 — 박스·그림자 없음 (B1). */
 export function PostList({ posts }: { posts: PostDerived[] }) {
   if (posts.length === 0) {
     return <p className="py-16 text-center text-zinc-500">아직 발행된 글이 없습니다.</p>;
@@ -29,7 +30,7 @@ export function PostList({ posts }: { posts: PostDerived[] }) {
               <span aria-hidden="true" className="text-zinc-300">
                 ·
               </span>
-              <span>{post.readingMinutes}분</span>
+              <ViewCount slug={post.slug} />
               {post.tags.length > 0 && (
                 <>
                   <span aria-hidden="true" className="text-zinc-300">

@@ -28,6 +28,42 @@ async function readDashboardViewCount(page: Page, slug: string): Promise<number>
   return Number(lastNumber);
 }
 
+test.describe("조회수 표시", () => {
+  test("홈 카드에 조회수가 채워지고, 카드가 N개여도 GET /api/views는 1번만 나간다", async ({
+    page,
+  }) => {
+    const getRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "GET" && request.url().includes("/api/views")) {
+        getRequests.push(request.url());
+      }
+    });
+
+    await page.goto("/");
+
+    const counts = page.locator("article .tabular-nums");
+    await expect(counts.first()).toHaveText(/^조회 [\d,]+$/);
+
+    const cardCount = await counts.count();
+    expect(cardCount).toBeGreaterThan(1);
+    // 카드마다 fetch하면 N번 나간다 — in-flight 프로미스 공유로 1번이어야 한다
+    expect(getRequests).toHaveLength(1);
+  });
+
+  test("글 상세는 조회 기록(POST)과 표시(GET)를 각각 1번씩 수행한다", async ({ page }) => {
+    const calls: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/views")) calls.push(request.method());
+    });
+
+    await page.goto(`/posts/${POST_SLUG}`);
+    await expect(page.locator(".tabular-nums").first()).toHaveText(/^조회 [\d,]+$/);
+
+    expect(calls.filter((m) => m === "POST")).toHaveLength(1);
+    expect(calls.filter((m) => m === "GET")).toHaveLength(1);
+  });
+});
+
 test.describe("운영자 조회 제외", () => {
   test.beforeEach(async ({ context }) => {
     await context.addCookies([await adminSessionCookie()]);
