@@ -145,3 +145,20 @@
 **렌더링 전략**: 조회수는 변하는 값이라 SSG와 충돌한다. `GET /api/views`를 추가하고 클라이언트 마운트 후 가져오는 방식을 채택 — 공개 페이지(`/`, `/posts/[slug]`, `/tags/[tag]`)의 정적 프리렌더를 유지하기 위함. 목록에 카드가 N개여도 요청이 N번 나가지 않도록 in-flight 프로미스를 모듈 스코프에서 공유한다(`components/blog/use-view-totals.ts`).
 
 **검증**: `tests/unit/view-totals.test.ts`(중복 제거 4케이스), `tests/api/views.test.ts`(GET 3케이스), `tests/e2e/views.spec.ts`(표시·요청 횟수 2케이스). 빌드 라우트 표에서 공개 페이지가 `○`/`●`로 유지되는 것으로 정적성 확인.
+
+### C2 — 조회 기록을 프로덕션 배포로 한정 + test 글 삭제 (2026-07-27)
+
+**변경**: `POST /api/views`가 `VERCEL_ENV === "production"`일 때만 조회를 기록한다. 아울러 임시 글 `content/posts/test.mdx`를 삭제.
+
+**이유**: 로컬 `.env.local`과 Vercel 프로덕션이 **같은 Supabase 프로젝트**를 본다(실측: 양쪽 `view_totals()` 결과 동일). 가드가 없으면 `pnpm dev`로 글을 열어보는 것만으로 실제 조회수가 오른다. `test` slug에 3회가 쌓여 있던 것이 그 흔적으로 보인다. preview 배포도 같은 이유로 제외했다 — PR 미리보기 열람이 지표를 오염시키지 않도록.
+
+**판정 기준을 NODE_ENV가 아닌 VERCEL_ENV로 둔 이유**: preview 배포도 `NODE_ENV`는 `"production"`이라 NODE_ENV만으로는 preview 열람을 걸러내지 못한다. 헤드리스 브라우저는 이미 `isbot`이 UA로 차단한다(실측 확인)는 점과 별개의 층이다.
+
+**영향**:
+
+- 로컬·preview에서는 조회수 기능의 **기록**이 동작하지 않는다(표시·조회는 정상). 로컬에서 기록까지 확인하려면 dev 전용 Supabase 프로젝트를 분리해야 한다 — 이번 범위 밖.
+- `test.mdx` 삭제로 발행 글은 `hello-world`·`js-event-loop` 2건.
+- `tests/e2e/toc.spec.ts`의 "h2가 없는 글에서는 목차를 표시하지 않는다" 케이스 제거 — 유일한 픽스처가 `test.mdx`였고, SSG + `dynamicParams = false`라 런타임 픽스처를 만들 수 없다. 대체 커버리지는 `tests/unit/toc.test.ts`의 "절 제목이 없으면 빈 배열을 반환한다" + `contracts/ui.md`의 "`<Toc entries>` 빈 배열 → null 렌더" 계약.
+- `page_views`에 남은 `test` slug 행(3건)은 고아 데이터 — 표시되는 곳은 없다.
+
+**검증**: unit 156 passed / e2e 24 passed / tsc·lint·build exit 0. 런타임 가드는 `tests/api/views.test.ts`에서 로컬·preview·development 3케이스로 검증.
