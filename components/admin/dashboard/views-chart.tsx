@@ -39,17 +39,17 @@ export function ViewsChart({ data, days }: { data: DailyViews[]; days: number })
       <p className="mb-2 text-xs text-zinc-500">
         최근 {days}일 합계 <span className="font-semibold text-zinc-700">{total}</span>회
       </p>
-      <div className="relative">
-        {/* 툴팁 — 막대 위 고정 높이에 띄우고, 양끝에서는 안쪽으로 당겨 잘리지 않게 한다 */}
+      {/* pt-7로 툴팁 자리를 미리 비워둔다 — 띄우기만 하면 섹션 제목과 겹친다 */}
+      <div className="relative pt-7">
+        {/* 툴팁 — 막대 위 고정 높이. 양끝에서는 안쪽으로 당겨 잘리지 않게 한다 */}
         {active && (
           <div
             role="status"
-            className="pointer-events-none absolute -top-1 z-10 -translate-y-full rounded-md bg-zinc-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-sm"
+            className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-md bg-zinc-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-sm"
             style={{
               left: `${((hovered! + 0.5) / series.length) * 100}%`,
-              transform: `translate(-50%, -100%)`,
               marginLeft:
-                hovered! < 2 ? "1.5rem" : hovered! > series.length - 3 ? "-1.5rem" : undefined,
+                hovered! < 3 ? "2.5rem" : hovered! > series.length - 4 ? "-2.5rem" : undefined,
             }}
           >
             {formatDay(active.date)} · <span className="font-semibold">{active.count}</span>회
