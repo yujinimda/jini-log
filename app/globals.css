@@ -131,3 +131,28 @@
     @apply font-sans;
     }
 }
+/* 어드민 마크다운 에디터 (C7) — CodeMirror 기본값은 글자가 거터에 붙어 시작한다.
+   본문을 쓰는 화면이므로 읽기 여백을 준다. .admin-editor 스코프 안에서만 적용. */
+.admin-editor .cm-content {
+  padding: 1.25rem 1.5rem;
+  /* 읽기 폭 상한은 두되 패널보다 넓어지면 안 된다 — 52rem 고정으로 뒀더니
+     분할 화면(약 720px)에서 줄이 잘려 안내 문구가 중간에서 끊겼다. */
+  max-width: min(52rem, 100%);
+}
+.admin-editor .cm-gutters {
+  background: transparent;
+  border-right: none;
+  padding-left: 0.5rem;
+  color: var(--color-zinc-300);
+}
+.admin-editor .cm-line {
+  line-height: 1.7;
+}
+/* placeholder가 한 줄로 잘리지 않게 — 좁은 화면에서 안내가 중간에 끊겼다 */
+.admin-editor .cm-placeholder {
+  white-space: pre-wrap;
+  color: var(--color-zinc-400);
+}
+.admin-editor .cm-editor.cm-focused {
+  outline: none;
+}

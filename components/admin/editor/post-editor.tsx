@@ -16,6 +16,7 @@ import { useDraftBackup } from "./use-draft-backup";
 import {
   emptyForm,
   fromFrontmatter,
+  humanizeValidationMessage,
   readApiError,
   toFrontmatter,
   type ApiErrorInfo,
@@ -26,14 +27,33 @@ import {
 function errorSummary(code: string): string {
   switch (code) {
     case "invalid-mdx":
-      return "본문 검증 실패 — 커밋되지 않았습니다";
+      return "본문에 문제가 있어 저장하지 못했습니다";
     case "invalid-frontmatter":
-      return "메타데이터 검증 실패 — 커밋되지 않았습니다";
+      return "채워야 할 항목이 있어 저장하지 못했습니다";
     case "stale-sha":
-      return "다른 곳에서 변경됨";
+      return "다른 곳에서 이 글이 바뀌었습니다";
     default:
-      return `저장 실패 (${code})`;
+      return "저장하지 못했습니다";
   }
+}
+
+/**
+ * 저장 상태 (C7) — 예전에는 "마지막 저장 —"만 있어서 지금 내용이 저장된 것인지
+ * 알 수 없었다. 미저장이면 그렇다고 말하고, 저장됐으면 시각을 보여준다.
+ */
+function SaveState({ dirty, savedAt }: { dirty: boolean; savedAt: Date | null }) {
+  if (dirty) {
+    return (
+      <span className="shrink-0 text-xs whitespace-nowrap text-amber-700">저장하지 않은 변경</span>
+    );
+  }
+  if (!savedAt) return null;
+  return (
+    <span className="shrink-0 text-xs whitespace-nowrap text-zinc-400">
+      {savedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false })}{" "}
+      저장됨
+    </span>
+  );
 }
 
 export interface PostEditorProps {
@@ -106,7 +126,29 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   /** 프리뷰 패널 토글 (T024) — md 미만에서는 원래 숨김이라 md+에서만 의미 있음 */
   const [showPreview, setShowPreview] = useState(true);
+  /** 좁은 화면 탭 — 예전에는 프리뷰가 md 미만에서 아예 접근 불가였다 (codex-review 반영) */
+  const [mobilePane, setMobilePane] = useState<"write" | "preview">("write");
   const router = useRouter();
+
+  // 미저장 변경 추적 (C7) — 저장 시점의 내용과 현재 내용을 비교한다.
+  // 예전에는 "마지막 저장 —"만 있어 지금 내용이 저장된 것인지 알 수 없었다.
+  //
+  // 새 글의 기준선은 "빈 글"이다. ""로 두면 아무것도 안 쓴 화면이 곧바로
+  // "저장하지 않은 변경"이 돼 경고가 무뎌진다. 렌더 중 읽으므로 ref가 아닌 state.
+  const [savedSnapshot, setSavedSnapshot] = useState(() =>
+    editingExisting ? "" : JSON.stringify({ form: emptyForm(), body: "", slug: "" }),
+  );
+  const currentSnapshot = JSON.stringify({ form, body, slug });
+  // 기존 글은 로드가 끝나기 전까지 비교 기준이 없다 — 그동안은 깨끗한 상태로 본다
+  const isDirty = savedSnapshot !== "" && savedSnapshot !== currentSnapshot;
+
+  // 닫기 전 경고 — 작성 내용은 localStorage에도 백업되지만, 실수로 탭을 닫는 것 자체를 막는다
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
 
   async function runAction(action: "save-draft" | "publish", overwrite = false) {
     const trimmedSlug = slug.trim();
@@ -153,7 +195,7 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
       }
       setActionError(err);
       // 실패 toast — 요약 + 사유. 422의 행·열 오류 목록은 에디터 인라인 유지 (계약)
-      toast.error(errorSummary(err.code), { description: err.message });
+      toast.error(errorSummary(err.code), { description: humanizeValidationMessage(err.message) });
       return;
     }
 
@@ -174,6 +216,8 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     setStatus("draft");
     setOriginalSlug(trimmedSlug);
     setLastSavedAt(new Date());
+    // 지금 내용을 "저장된 상태"로 기록 — 이후 편집이 있어야 dirty가 된다
+    setSavedSnapshot(JSON.stringify({ form, body, slug: trimmedSlug }));
     toast.success(`"${trimmedSlug}" 초안을 저장했습니다`, {
       action: { label: "커밋 보기", onClick: () => window.open(data.commitUrl, "_blank") },
     });
@@ -199,6 +243,25 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
       ? (actionError.detail as { message: string; line?: number; column?: number; field?: string }[])
       : [];
 
+  // ⌘/Ctrl+S = 초안 저장 (C7). 브라우저의 "페이지 저장"을 가로챈다.
+  // 발행 글 편집 중에는 초안 저장이 없으므로 아무것도 하지 않는다.
+  const canSaveDraft = status !== "published";
+  // 핸들러가 항상 최신 runAction을 보게 하되, ref 갱신은 렌더가 아니라 effect에서 한다
+  // (react-hooks/refs — 렌더 중 ref 변경 금지)
+  const runActionRef = useRef(runAction);
+  useEffect(() => {
+    runActionRef.current = runAction;
+  });
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key !== "s") return;
+      e.preventDefault();
+      if (canSaveDraft) void runActionRef.current("save-draft");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canSaveDraft]);
+
   // 기존 글 로드 — GitHub 최신본 + sha (편집 시작)
   useEffect(() => {
     if (!initialSlug) return;
@@ -223,6 +286,14 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
       setForm(fromFrontmatter(data.frontmatter));
       setBody(data.body);
       setSha(data.sha);
+      // 불러온 직후는 저장된 상태 — 손대기 전까지 dirty가 아니다
+      setSavedSnapshot(
+        JSON.stringify({
+          form: fromFrontmatter(data.frontmatter),
+          body: data.body,
+          slug: initialSlug,
+        }),
+      );
       setLoading(false);
     })();
     return () => {
@@ -271,62 +342,76 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
           </span>
         </div>
       )}
-      {/* 상단 액션바 — sticky 고정 + 마지막 저장 시각 상시 표시 + 프리뷰 토글 (T024) */}
-      <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-white/95 px-4 py-2 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-zinc-700">
-            {status === "new" ? "새 글 작성" : `편집: ${originalSlug ?? slug} (${status === "published" ? "발행됨" : "초안"})`}
+      {/* 상단 액션바 (C7 재구성)
+          - 이탈(대시보드)은 왼쪽 끝, 발행은 오른쪽 끝 — 예전에는 둘이 붙어 있었다
+          - 버튼 타깃 확대(py-1.5 → py-2, text-xs → text-sm)
+          - "마지막 저장 —" 대신 저장 여부를 상태로 말한다 */}
+      <div className="sticky top-0 z-40 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-zinc-200 bg-white/95 px-5 py-3 backdrop-blur">
+        <a
+          href="/admin"
+          className="-ml-1.5 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+        >
+          <span aria-hidden="true">←</span> 대시보드
+        </a>
+
+        <div className="flex min-w-0 items-center gap-2.5">
+          <h1 className="truncate text-sm font-semibold text-zinc-800">
+            {status === "new" ? "새 글" : (originalSlug ?? slug)}
           </h1>
-          <span className="text-xs whitespace-nowrap text-zinc-400">
-            마지막 저장{" "}
-            {lastSavedAt
-              ? lastSavedAt.toLocaleTimeString("ko-KR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: false,
-                })
-              : "—"}
-          </span>
+          {status !== "new" && (
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                status === "published"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-zinc-100 text-zinc-600"
+              }`}
+            >
+              {status === "published" ? "발행됨" : "초안"}
+            </span>
+          )}
+          <SaveState dirty={isDirty} savedAt={lastSavedAt} />
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setShowPreview((v) => !v)}
             aria-pressed={showPreview}
-            className="hidden rounded-md border border-zinc-200 px-3 py-1.5 text-xs text-zinc-500 hover:bg-zinc-50 md:block"
+            className="hidden rounded-md border border-zinc-200 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50 md:block"
           >
-            {showPreview ? "프리뷰 숨기기" : "프리뷰 표시"}
+            {showPreview ? "프리뷰 숨기기" : "프리뷰 보기"}
           </button>
-          {status !== "published" && (
+          {canSaveDraft && (
             <button
               onClick={() => runAction("save-draft")}
               disabled={saving !== null}
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+              title="⌘S"
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
             >
-              {saving === "save-draft" ? "저장 중..." : "초안 저장"}
+              {saving === "save-draft" ? "저장 중…" : "초안 저장"}
             </button>
           )}
           <button
             onClick={() => runAction("publish")}
             disabled={saving !== null}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
           >
-            {saving === "publish" ? "발행 중..." : status === "published" ? "재발행" : "발행"}
+            {saving === "publish" ? "발행 중…" : status === "published" ? "재발행" : "발행"}
           </button>
-          <a href="/admin" className="text-xs text-zinc-500 underline">
-            대시보드
-          </a>
         </div>
       </div>
 
-      <header className="border-b border-zinc-200 px-4 py-3">
-        {/* 실패 통지는 toast (T022) — 인라인은 422 행·열/필드 오류 목록과 stale 재로드 유도만 유지 (계약 예외) */}
-        {actionError && (errorDetails.length > 0 || isStale) && (
+      {/* 메타 영역 — 폭을 제한한다. 예전에는 px-4뿐이라 1440px 화면에서 제목 입력이
+          1400px로 늘어나 스캔이 불가능했다. 폭 토큰은 blog.css의 --content-w 단일 출처. */}
+      <header className="border-b border-zinc-200 bg-white px-5 py-6 sm:px-8 sm:py-8">
+        <div className="mx-auto w-full max-w-[var(--content-w)]">
+          {/* 실패 통지는 toast (T022) — 인라인은 422 행·열/필드 오류 목록과 stale 재로드 유도만 유지 (계약 예외) */}
+          {actionError && (errorDetails.length > 0 || isStale) && (
           <div
             role="alert"
-            className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+            className="mb-5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
           >
             <p className="font-medium">{errorSummary(actionError.code)}</p>
-            <p className="mt-0.5">{actionError.message}</p>
+            <p className="mt-0.5">{humanizeValidationMessage(actionError.message)}</p>
             {errorDetails.length > 0 && (
               <ul className="mt-1 list-disc pl-5 text-xs">
                 {errorDetails.map((e, i) => (
@@ -351,13 +436,14 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
             )}
           </div>
         )}
-        <FrontmatterFields
-          form={form}
-          onChange={setForm}
-          slug={slug}
-          onSlugChange={setSlug}
-          slugLocked={status === "published"}
-        />
+          <FrontmatterFields
+            form={form}
+            onChange={setForm}
+            slug={slug}
+            onSlugChange={setSlug}
+            slugLocked={status === "published"}
+          />
+        </div>
       </header>
 
       <ConfirmDialog
@@ -377,20 +463,52 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
         }}
       />
 
+      {/* 좁은 화면 탭 — 예전에는 프리뷰가 md 미만에서 DOM에조차 없어 볼 방법이 없었다 */}
+      <div className="flex gap-1 border-b border-zinc-200 bg-zinc-50 px-3 py-1.5 md:hidden">
+        {(["write", "preview"] as const).map((pane) => (
+          <button
+            key={pane}
+            onClick={() => setMobilePane(pane)}
+            aria-pressed={mobilePane === pane}
+            className={`rounded-md px-3 py-1.5 text-sm ${
+              mobilePane === pane
+                ? "bg-white font-medium text-zinc-900 shadow-sm"
+                : "text-zinc-500 hover:text-zinc-900"
+            }`}
+          >
+            {pane === "write" ? "작성" : "발행 후 모습"}
+          </button>
+        ))}
+      </div>
+
       <main className="flex min-h-0 flex-1">
-        <section className="min-w-0 flex-1 border-r border-zinc-200" aria-label="마크다운 편집">
+        <section
+          className={`min-w-0 flex-1 border-r border-zinc-200 ${
+            mobilePane === "write" ? "" : "hidden md:block"
+          }`}
+          aria-label="마크다운 편집"
+        >
           <CodeMirror
             value={body}
             onChange={setBody}
             extensions={extensions}
             height="100%"
-            className="h-full text-sm"
-            placeholder="마크다운 + 등록된 컴포넌트(<Callout>, <Collapse>)로 본문을 작성하세요. 이미지는 붙여넣기/드래그로 업로드됩니다."
+            // 에디터 내부 여백 — 예전에는 글자가 거터에 붙어 시작했다
+            className="admin-editor h-full text-sm"
+            placeholder="마크다운으로 본문을 씁니다. <Callout>·<Collapse> 컴포넌트를 쓸 수 있고, 이미지는 붙여넣거나 끌어다 놓으면 업로드됩니다."
           />
         </section>
         {showPreview && (
-          <section className="hidden min-w-0 flex-1 md:block" aria-label="프리뷰">
-            <Preview frontmatter={frontmatter} body={body} />
+          <section
+            className={`min-w-0 flex-1 ${mobilePane === "preview" ? "" : "hidden md:block"}`}
+            aria-label="발행 후 모습"
+          >
+            <Preview
+              frontmatter={frontmatter}
+              body={body}
+              // 초안을 쓰는 중에 "제목이 비었다"고 알리지 않는다 — 초안은 그대로 저장된다 (C7)
+              mode={status === "published" ? "publish" : "draft"}
+            />
           </section>
         )}
       </main>
