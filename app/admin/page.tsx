@@ -2,9 +2,11 @@
 // 목록(GitHub 최신본), invalid 초안 오류 표시, 글별 조회수·최근 발행일 (FR-011·014). 소유: 레인 C
 import Link from "next/link";
 import { getContentList } from "@/lib/github";
+import { getReferrerTotals, type ReferrerTotal } from "@/lib/referrers";
 import { getDailyViews, getViewTotals, type DailyViews } from "@/lib/views";
 import { DeployBanner } from "@/components/admin/dashboard/deploy-banner";
 import { PostTable } from "@/components/admin/dashboard/post-table";
+import { ReferrerList } from "@/components/admin/dashboard/referrer-list";
 import { ViewsChart } from "@/components/admin/dashboard/views-chart";
 
 export const metadata = { title: "대시보드" };
@@ -31,10 +33,20 @@ async function loadViews(): Promise<ViewsData> {
   }
 }
 
+/** 유입 출처 (C4) — 부가 지표라 실패해도 빈 배열로 조용히 넘어간다 */
+async function loadReferrers(): Promise<ReferrerTotal[]> {
+  try {
+    return await getReferrerTotals(TREND_DAYS);
+  } catch {
+    return [];
+  }
+}
+
 export default async function AdminDashboardPage() {
-  const [{ posts, drafts }, { totals, daily, error: viewsError }] = await Promise.all([
+  const [{ posts, drafts }, { totals, daily, error: viewsError }, referrers] = await Promise.all([
     getContentList(),
     loadViews(),
+    loadReferrers(),
   ]);
 
   return (
@@ -57,10 +69,16 @@ export default async function AdminDashboardPage() {
       )}
 
       {!viewsError && (
-        <section className="mb-8">
-          <h2 className="mb-2 text-sm font-semibold text-zinc-700">조회수 추이</h2>
-          <ViewsChart data={daily} days={TREND_DAYS} />
-        </section>
+        <div className="mb-8 grid gap-8 lg:grid-cols-[3fr_2fr]">
+          <section>
+            <h2 className="mb-2 text-sm font-semibold text-zinc-700">조회수 추이</h2>
+            <ViewsChart data={daily} days={TREND_DAYS} />
+          </section>
+          <section>
+            <h2 className="mb-2 text-sm font-semibold text-zinc-700">유입 출처</h2>
+            <ReferrerList data={referrers} days={TREND_DAYS} />
+          </section>
+        </div>
       )}
 
       <section className="mb-8">

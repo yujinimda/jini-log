@@ -1,9 +1,26 @@
 /* 글 본문 타이포그래피 (002 T009 — B1 순정 미디엄) — MDX 렌더 결과(.prose)에만 적용. 소유: 레인 B
    .prose 클래스명은 에디터 프리뷰와 공유되는 계약(FR-011) — 변경 금지.
-   톤: 세리프 제목 + 무채색(zinc) + 17px/행간 1.8/본문 폭 42rem (docs/design/2026-07-21-002-redesign-design.md) */
+   톤: 세리프 제목 + 무채색(zinc) + 17px/행간 1.8/본문 폭 48rem (docs/design/2026-07-21-002-redesign-design.md) */
+
+/* 레이아웃 수치 단일 출처 (C4, codex-review 반영) — 이 값이 CSS와 컴포넌트 calc()에
+   흩어지면 폭을 바꿀 때마다 목차·사이드바 위치가 어긋난다.
+     --content-w  본문 폭
+     --gutter     좌우 패딩
+     --rail-w     좌/우 레일(전체 글·목차) 폭
+     --rail-gap   본문과 레일 사이 간격
+   레일 필요 폭 = 2 × (content/2 + rail-gap + rail-w) = 2 × (24+2+12) = 76rem(1216px)
+   → xl(1280px)에서 좌우 2rem씩 여유. 레일은 xl 이상에서만 표시한다. */
+:root {
+  --content-w: 48rem;
+  --gutter: 1.25rem;
+  --rail-w: 12rem;
+  --rail-gap: 2rem;
+  /* 화면 중앙에서 레일 안쪽 모서리까지의 거리 */
+  --rail-offset: calc(var(--content-w) / 2 + var(--rail-gap));
+}
 
 .prose {
-  max-width: 42rem;
+  max-width: var(--content-w);
   margin-inline: auto;
   color: var(--color-zinc-800);
   font-size: 1.0625rem; /* 17px */

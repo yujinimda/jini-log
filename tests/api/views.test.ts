@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isOperator } from "@/lib/auth";
 import { getPublishedPosts } from "@/lib/content";
+import { incrementReferrer } from "@/lib/referrers";
 import { getViewTotals, incrementView } from "@/lib/views";
 
 // 레인 B/C가 아직 라우트를 구현하지 않음 — 모듈 부재 시 skip (구현 머지 후 자동 활성화)
@@ -31,6 +32,12 @@ vi.mock("@/lib/content", () => ({
   getPublishedPosts: vi.fn(),
 }));
 
+// 분류(classifyReferrerHost)는 순수 함수라 실제 구현을 쓰고, 기록만 가로챈다 (C4)
+vi.mock("@/lib/referrers", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/referrers")>()),
+  incrementReferrer: vi.fn(),
+}));
+
 const publishedPost = {
   slug: "hello-world",
   title: "Hello World",
@@ -47,8 +54,12 @@ function arrangeDefault() {
   vi.stubEnv("VERCEL_ENV", "production");
   vi.mocked(isOperator).mockResolvedValue(false);
   vi.mocked(incrementView).mockResolvedValue(undefined);
+  vi.mocked(incrementReferrer).mockResolvedValue(undefined);
   vi.mocked(getPublishedPosts).mockResolvedValue([publishedPost]);
 }
+
+const BROWSER_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 function postViews(body?: BodyInit | null, headers?: HeadersInit) {
   return routeModule!.POST(
@@ -206,6 +217,98 @@ describeRoute("POST /api/views", () => {
     expect(await response.text()).toBe("");
     expect(incrementView).toHaveBeenCalledTimes(1);
     expect(incrementView).toHaveBeenCalledWith("hello-world");
+  });
+});
+
+describeRoute("POST /api/views — 유입 출처 (C4)", () => {
+  it("유입 호스트를 안정 키로 정규화해 기록한다", async () => {
+    arrangeDefault();
+
+    await postViews(
+      JSON.stringify({ slug: "hello-world", referrerHost: "www.google.com" }),
+      { "content-type": "text/plain", "user-agent": BROWSER_UA },
+    );
+
+    expect(incrementReferrer).toHaveBeenCalledExactlyOnceWith("hello-world", "google");
+    // 저장되는 값은 안정 키뿐 — 호스트명조차 그대로 들어가지 않는다
+    expect(JSON.stringify(vi.mocked(incrementReferrer).mock.calls)).not.toContain("google.com");
+  });
+
+  it("사이트 내 이동은 유입으로 기록하지 않는다", async () => {
+    arrangeDefault();
+
+    // Request host = localhost — 같은 호스트에서 온 리퍼러
+    await postViews(
+      JSON.stringify({ slug: "hello-world", referrerHost: "localhost" }),
+      { "content-type": "text/plain", "user-agent": BROWSER_UA },
+    );
+
+    expect(incrementView).toHaveBeenCalledTimes(1);
+    expect(incrementReferrer).not.toHaveBeenCalled();
+  });
+
+  it("호스트가 빈 문자열이면 direct로 기록한다", async () => {
+    arrangeDefault();
+
+    await postViews(JSON.stringify({ slug: "hello-world", referrerHost: "" }), {
+      "content-type": "text/plain",
+      "user-agent": BROWSER_UA,
+    });
+
+    expect(incrementReferrer).toHaveBeenCalledExactlyOnceWith("hello-world", "direct");
+  });
+
+  it("referrerHost 필드가 없으면(세션 첫 글이 아님) 조회수만 기록한다", async () => {
+    arrangeDefault();
+
+    await postViews(JSON.stringify({ slug: "hello-world" }), {
+      "content-type": "text/plain",
+      "user-agent": BROWSER_UA,
+    });
+
+    expect(incrementView).toHaveBeenCalledTimes(1);
+    expect(incrementReferrer).not.toHaveBeenCalled();
+  });
+
+  it("유입 기록이 실패해도 조회수 기록은 유지되고 204로 응답한다", async () => {
+    arrangeDefault();
+    vi.mocked(incrementReferrer).mockRejectedValue(new Error("db down"));
+
+    // 부가 지표 실패가 본 지표를 깨면 안 된다
+    const response = await postViews(
+      JSON.stringify({ slug: "hello-world", referrerHost: "x.com" }),
+      { "content-type": "text/plain", "user-agent": BROWSER_UA },
+    );
+
+    expect(response.status).toBe(204);
+    expect(incrementView).toHaveBeenCalledTimes(1);
+  });
+
+  it("봇·운영자·비프로덕션에서는 유입도 기록하지 않는다", async () => {
+    arrangeDefault();
+    await postViews(JSON.stringify({ slug: "hello-world", referrerHost: "www.google.com" }), {
+      "content-type": "text/plain",
+      "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)",
+    });
+    expect(incrementReferrer).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    arrangeDefault();
+    vi.mocked(isOperator).mockResolvedValue(true);
+    await postViews(JSON.stringify({ slug: "hello-world", referrerHost: "www.google.com" }), {
+      "content-type": "text/plain",
+      "user-agent": BROWSER_UA,
+    });
+    expect(incrementReferrer).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    arrangeDefault();
+    vi.stubEnv("VERCEL_ENV", "preview");
+    await postViews(JSON.stringify({ slug: "hello-world", referrerHost: "www.google.com" }), {
+      "content-type": "text/plain",
+      "user-agent": BROWSER_UA,
+    });
+    expect(incrementReferrer).not.toHaveBeenCalled();
   });
 });
 

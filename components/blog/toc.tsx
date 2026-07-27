@@ -80,9 +80,11 @@ export function Toc({ entries }: { entries: TocEntry[] }) {
 
   return (
     <>
-      {/* 데스크톱(≥1280px): 본문 42rem 컬럼 우측에 고정 */}
-      <aside className="fixed top-40 left-[calc(50%+23rem)] hidden w-56 xl:block">
-        <nav aria-label="목차">
+      {/* 데스크톱(≥1280px): 본문 48rem 컬럼 우측에 고정 (C4 — 좌측 전체 글 목록과 대칭) */}
+      <aside className="fixed top-40 left-[calc(50%+var(--rail-offset))] hidden w-[var(--rail-w)] xl:block">
+        {/* 절이 많은 글에서 레일이 뷰포트 밖으로 잘리지 않게 내부 스크롤 (codex-review 반영).
+            높이 제한은 고정 레일에만 — 아래 모바일 접이식은 문서 흐름이라 제한하지 않는다. */}
+        <nav aria-label="목차" className="max-h-[calc(100dvh-12rem)] overflow-y-auto pr-1">
           <p className="mb-3 text-xs font-semibold tracking-wide text-zinc-400">목차</p>
           <TocLinks entries={entries} activeId={activeId} />
         </nav>

@@ -30,6 +30,19 @@
   - 변경 이력: `readingMinutes` 제거 (spec.md [C1](../spec.md#후속-변경-이력), 2026-07-27). 카드·상세의 그 자리는 조회수(`<ViewCount slug>`)가 차지하며, 조회수는 본문 파생값이 아니라 `GET /api/views`로 클라이언트에서 가져온다 — 공개 페이지의 SSG 유지 목적.
 - 카드 요약: description을 **CSS 2줄 말줄임(line-clamp-2 상당)** 으로 — 카드 높이 해석 여지 없음.
 
+## 레이아웃 계약 (C4)
+
+- 수치의 단일 출처는 `app/(blog)/blog.css`의 CSS 변수다. 컴포넌트에 px·rem 리터럴을 다시 쓰지 않는다.
+  - `--content-w` 48rem · `--gutter` 1.25rem · `--rail-w` 12rem · `--rail-gap` 2rem
+  - `--rail-offset` = `--content-w / 2 + --rail-gap` — 좌/우 레일이 공유하는 중앙 기준 오프셋
+- 공개 레이아웃 컨테이너 폭 = `--content-w + 2 × --gutter`. 패딩을 폭에 포함시키지 않으면 실제 본문이 `.prose`의 48rem보다 좁아진다.
+- 레일 2종은 **xl(1280px) 이상에서만** 표시하고 그 미만은 숨긴다 — 필요 폭 `2 × (24 + 2 + 12) = 76rem`.
+  - 좌: `<PostSidebar>` 전체 발행 글 (`nav[aria-label="전체 글"]`, 현재 글은 `aria-current="page"`)
+  - 우: `<Toc>` 목차 (`nav[aria-label="목차"]`, xl 미만은 본문 상단 접이식)
+  - 둘 다 `max-height` + 내부 스크롤 — 항목이 늘어도 뷰포트 밖으로 잘리지 않는다.
+- 좌측 레일 데이터는 서버(`layout.tsx`)에서 읽어 정적 HTML에 포함한다. 클라이언트 경계는 현재 글 하이라이트에만 쓴다 — **공개 페이지는 SSG를 유지해야 한다**(빌드 라우트 표 `○`/`●`로 검증).
+- 헤더 어드민 진입점(`<AdminLink>`)의 **정적 HTML 문구는 항상 "로그인"** 이다. 서버에서 세션을 조회하면 전 페이지가 동적이 된다. 문구 교체는 마운트 후 클라이언트가 하고, 목적지는 로그인 여부와 무관하게 `/admin`이다.
+
 ## 어드민 부품 교체 계약
 
 - Dialog 대체 지점 3곳: 발행취소·삭제(post-row-actions), 덮어쓰기 확인(post-editor). **API 요청·응답·순서는 001 contracts/api.md 그대로** — 표현만 교체.

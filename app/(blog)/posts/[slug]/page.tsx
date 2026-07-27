@@ -84,7 +84,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <ViewBeacon slug={post.slug} />
-      <header className="mx-auto mb-10 max-w-2xl">
+      <header className="mx-auto mb-10 max-w-[var(--content-w)]">
         <h1 className="font-serif text-3xl leading-snug font-bold tracking-tight text-zinc-900 sm:text-4xl">
           {post.title}
         </h1>
