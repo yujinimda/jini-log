@@ -162,3 +162,84 @@
 - `page_views`에 남은 `test` slug 행(3건)은 고아 데이터 — 표시되는 곳은 없다.
 
 **검증**: unit 156 passed / e2e 24 passed / tsc·lint·build exit 0. 런타임 가드는 `tests/api/views.test.ts`에서 로컬·preview·development 3케이스로 검증.
+
+### C4 — 읽기 폭 확대·3단 레일·유입 출처·세션 유지 (2026-07-27)
+
+사용자 요청 6건을 한 번에 반영. 계획을 codex(gpt-5.6-sol)로 크로스 검증했고 BLOCKED 4건을 모두 반영했다.
+
+**1. 본문 폭 42rem → 48rem**
+
+읽기 폭이 좁다는 피드백. 한 줄 약 45자 → 52자(한글 본문 적정 40~55자 범위 유지).
+`max-w-3xl`(48rem) + `px-5`로 두면 패딩이 폭을 먹어 실제 본문이 45.5rem으로 줄어든다 —
+컨테이너를 `본문 + 좌우 패딩`으로 잡아야 `.prose`의 48rem이 의미를 갖는다 (codex BLOCKED).
+
+레이아웃 수치는 `blog.css`의 CSS 변수 하나로 모았다 (`--content-w`·`--gutter`·`--rail-w`·
+`--rail-gap`·`--rail-offset`). 값이 CSS와 컴포넌트 `calc()`에 흩어지면 폭을 바꿀 때마다
+목차·레일 위치가 어긋난다 (codex SUGGESTION).
+
+**2. 3단 레일 레이아웃 (≥1280px)**
+
+좌측에 전체 글 목록, 우측에 기존 목차. 어느 공개 페이지에서든 전체 글에 닿게 하기 위함.
+필요 폭 = 2 × (24 + 2 + 12) = 76rem(1216px) → xl에서 좌우 2rem 여유. 목차 폭을 14rem →
+12rem으로 줄여 좌우 대칭을 맞췄다. 레일은 내부 스크롤(`max-h` + `overflow-y-auto`) —
+글·절이 늘면 뷰포트 밖으로 잘린다 (codex CONCERN).
+
+목록 데이터는 `layout.tsx`에서 서버로 읽어 정적 HTML에 포함시키고, 클라이언트 컴포넌트는
+현재 글 하이라이트(`usePathname`)에만 쓴다. **공개 페이지 SSG 유지를 빌드 라우트 표로 확인**
+(`○ /`, `● /posts/[slug]`, `● /tags/[tag]`).
+
+**3. 헤더 "로그인" → 로그인 시 "대시보드"**
+
+서버에서 `auth()`를 부르면 헤더가 전 페이지 공용이라 사이트 전체가 SSG를 잃는다.
+조회수와 같은 전략으로 정적 HTML은 "로그인"으로 내보내고 마운트 후 문구만 교체한다.
+목적지는 항상 `/admin`이고 인가 판정은 서버(middleware·signIn 콜백)가 한다.
+
+**4. 세션 유지 (자동 로그인)**
+
+`session.maxAge` 30일 + `updateAge` 1일. JWT 전략은 세션을 읽을 때마다 만료가 밀리므로
+30일에 한 번만 들러도 사실상 로그아웃되지 않는다. 90일을 검토했으나 **같은 성질 때문에
+탈취된 쿠키도 무한 연장되므로** 30일로 낮췄다 (codex BLOCKED).
+
+**5. 조회수 차트 툴팁**
+
+HTML `title` 속성은 지연이 길고 스타일을 줄 수 없어 실질적으로 보이지 않았다. 막대를
+버튼으로 만들고 hover·focus 모두에서 날짜(요일 포함)·조회수를 표시한다. 0회인 날도
+집어낼 수 있도록 hover 영역은 컬럼 전체로 잡았다.
+
+**6. 유입 출처 추적**
+
+**검색어는 취득 불가**다. 검색엔진이 `Referrer-Policy`로 쿼리스트링을 제거해 보낸다
+(구글은 2011년부터). 실제 검색어는 Google Search Console·네이버 서치어드바이저 연동이
+필요하며 이번 범위 밖. 대신 "어디서 왔는가"(구글·네이버·X·직접 유입 등)를 집계한다.
+
+측정 대상은 **세션 최초 유입 출처**다. `document.referrer`는 최초 문서 로드 값이라 Next의
+클라이언트 내비게이션 후에도 바뀌지 않아, 매번 실어 보내면 구글 유입 1회가 그 세션의 모든
+글에 반복 귀속된다 (codex BLOCKED). 그래서 `sessionStorage` 플래그로 세션당 1회, 랜딩한
+글에만 귀속시킨다.
+
+브라우저에서 **호스트명만** 추려 보낸다 — `Referrer-Policy`가 항상 쿼리를 지우는 것은
+아니어서 원본 URL에 경로·검색어가 남아 있을 수 있고, 그것을 네트워크·서버 로그로
+흘리지 않기 위함 (codex BLOCKED). 서버는 호스트를 **안정 키**(`google`·`direct`·`other` 등)로
+정규화해 저장하고 한글 표시는 UI에서만 붙인다 — 표시 문구를 DB에 넣으면 문구를 바꾸는
+순간 집계 키가 갈라진다 (codex SUGGESTION).
+
+**영향**:
+
+- 새 마이그레이션 `002_referrer_hits.sql` — `referrer_hits(slug, view_date, source, count)`.
+  001과 동일한 보안 패턴(RLS on + security definer + service_role만 execute).
+  slug를 함께 두는 이유: "어떤 글이 어디서 유입되는가"는 나중에 소급할 수 없다.
+- 새 마이그레이션 `003_fix_daily_views_range.sql` — 001의 `daily_views`가
+  `view_date >= current_date - p_days`라 "최근 30일"에 31개 날짜를 포함했다.
+  차트는 30칸을 그리는데 합계는 31일치였다 (codex CONCERN). 경계를 `>`로 교정.
+- `contracts/ui.md` PostDerived 항목 아래에 레일·폭 계약 추가.
+
+**미적용 주의**: 마이그레이션 002·003은 **Supabase 대시보드에서 수동 실행이 필요하다**
+(레포에 supabase CLI·psql·DB 접속 문자열이 없어 자동 적용 불가 — 001도 같은 방식으로 적용됨).
+미적용 상태에서도 화면은 깨지지 않는 것을 실측 확인했다: `getReferrerTotals`가 throw →
+`loadReferrers`가 catch → 빈 배열 → "아직 집계된 유입이 없습니다" 표시.
+
+**검증**: unit 186 passed / e2e 45 passed / tsc·lint·build exit 0.
+신규 커버리지 — `tests/unit/referrers.test.ts`(분류·라벨 계약), `tests/api/views.test.ts`(유입
+기록 6케이스), `tests/e2e/layout-rails.spec.ts`(레일 노출·현재 글 표시·좁은 화면 숨김·헤더 진입점).
+테스트가 실제 결함 2건을 잡았다: 클라이언트 모듈의 함수를 서버에서 호출(빌드 실패),
+`localhost`처럼 점 없는 호스트가 self 판정보다 형식 검증에 먼저 걸려 내부 이동이 유입으로 샘.

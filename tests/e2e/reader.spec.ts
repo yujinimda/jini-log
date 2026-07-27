@@ -4,10 +4,12 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("독자 열람·인터랙티브·복사", () => {
+  // C4에서 좌측 "전체 글" 레일이 추가돼 같은 글로 가는 링크가 본문·레일 두 곳에 존재한다.
+  // 검증 대상은 본문 목록이므로 main으로 스코프를 좁힌다 (레일은 아래 별도 테스트).
   test("비로그인 독자는 홈에서 발행 글을 열고 상세 본문을 읽을 수 있다", async ({ page }) => {
     await page.goto("/");
 
-    const postLink = page.getByRole("link", { name: /지니로그 시작/ });
+    const postLink = page.getByRole("main").getByRole("link", { name: /지니로그 시작/ });
     await expect(postLink).toBeVisible();
 
     await postLink.click();
@@ -19,7 +21,9 @@ test.describe("독자 열람·인터랙티브·복사", () => {
   test("태그 페이지에는 해당 태그의 발행 글이 노출된다", async ({ page }) => {
     await page.goto("/tags/meta");
 
-    await expect(page.getByRole("link", { name: /지니로그 시작/ })).toBeVisible();
+    await expect(
+      page.getByRole("main").getByRole("link", { name: /지니로그 시작/ }),
+    ).toBeVisible();
   });
 
   test("Collapse 컴포넌트는 페이지 이동 없이 열리고 닫힌다", async ({ page }) => {
