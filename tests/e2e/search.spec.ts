@@ -4,6 +4,9 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, type Locator, test } from "@playwright/test";
+import { anyPost } from "./helpers/content";
+
+const sample = anyPost();
 
 const hasSearchCommand = existsSync(resolve(__dirname, "../../components/blog/search-command.tsx"));
 
@@ -35,14 +38,14 @@ test.describe("검색 커맨드", () => {
     const input = searchField(dialog);
     await expect(input).toBeVisible();
 
-    await input.fill("지니로그");
+    await input.fill(sample.title.slice(0, 4));
 
-    const result = searchResult(dialog, "지니로그 시작");
+    const result = searchResult(dialog, sample.title);
     await expect(result).toBeVisible();
 
     await result.click();
 
-    await expect(page).toHaveURL(/\/posts\/hello-world$/);
+    await expect(page).toHaveURL(new RegExp(`/posts/${sample.slug}$`));
   });
 
   test("검색 결과가 없으면 결과 없음 문구를 보여준다", async ({ page }) => {
@@ -91,10 +94,10 @@ test.describe("검색 커맨드", () => {
     await expect(dialog).toBeVisible();
 
     const input = searchField(dialog);
-    await input.fill("지니로그");
+    await input.fill(sample.title.slice(0, 4));
 
     // 레인 B 구현 후 청크 URL 네이밍(search-index 등)은 실제 번들 전략에 맞춰 조정 가능
-    const result = searchResult(dialog, "지니로그 시작");
+    const result = searchResult(dialog, sample.title);
     await expect(result).toBeVisible();
   });
 });

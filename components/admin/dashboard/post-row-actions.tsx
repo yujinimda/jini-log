@@ -2,7 +2,7 @@
 // 발행취소·삭제 UI (T042, US4 → 002 T021: 브라우저 confirm 팝업 → 앱 다이얼로그) — 소유: 레인 C
 // 확인 → POST /api/admin/posts 액션. API 요청·순서는 001 그대로 (표현만 교체 — FR-012).
 // sha는 액션 직전에 단건 조회로 얻는다 (낙관적 잠금 — 목록 응답에는 sha가 없다).
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { PostActionResponse, PostStatus } from "@/lib/types";
@@ -17,6 +17,8 @@ const ACTION_LABEL: Record<ActionKind, string> = { unpublish: "발행취소", de
 export function PostRowActions({ slug, status }: { slug: string; status: PostStatus }) {
   const router = useRouter();
   const [busy, setBusy] = useState<ActionKind | null>(null);
+  /** 중복 실행 차단 — state(busy)는 갱신이 비동기라 빠른 연타를 막지 못한다 */
+  const runningRef = useRef(false);
   /** 어떤 액션의 확인 다이얼로그가 열려 있는지 (T021 — 브라우저 confirm 팝업 대체) */
   const [confirming, setConfirming] = useState<ActionKind | null>(null);
   /** 발행취소 시 같은 slug 초안 존재(409 slug-exists) → 덮어쓰기 확인 다이얼로그 */
@@ -26,6 +28,14 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
   } | null>(null);
 
   async function run(action: ActionKind, overwrite = false) {
+    // 중복 실행 차단 — busy는 state라 갱신이 비동기다. 확인 버튼을 빠르게 두 번 누르면
+    // disabled가 반영되기 전에 run()이 두 번 들어오고, 두 번째는 이미 삭제된 글을 다시
+    // 지우려다 404로 "삭제 실패" 토스트를 띄운다. ref는 동기적으로 막힌다.
+    if (runningRef.current) return;
+    runningRef.current = true;
+
+    // 이 지점 이후의 예외는 "액션 실패"가 아니다 — 서버 작업은 이미 커밋됐다
+    let committed = false;
     setBusy(action);
     try {
       // 낙관적 잠금용 현재 sha 조회
@@ -54,7 +64,11 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
         throw new Error(err.message);
       }
 
+      // 서버가 2xx를 반환한 시점에 커밋은 이미 끝났다 — 본문 파싱보다 앞에 둔다.
+      // (파싱이 실패해도 글은 지워진 상태다. 여기 아래에서 뭐가 터지든 "실패"가 아니다.)
+      committed = true;
       const data = (await res.json()) as PostActionResponse;
+
       // 발행 글이 바뀌면 재배포가 일어난다 — refresh로 행이 사라져도 폴링이
       // 유지되도록 대시보드 레벨 배너에 위임 (codex-review 반영)
       if (status === "published") {
@@ -68,13 +82,22 @@ export function PostRowActions({ slug, status }: { slug: string; status: PostSta
           ? `"${slug}" 발행을 취소했습니다 — 초안으로 이동했습니다`
           : `"${slug}" 글을 삭제했습니다`,
       );
-      router.refresh();
     } catch (err) {
-      // 실패 토스트에 사유(message) 포함 — 화면 상태는 오염하지 않는다 (FR-013)
-      toast.error(`${ACTION_LABEL[action]} 실패`, { description: (err as Error).message });
-      router.refresh();
+      if (committed) {
+        // 커밋은 됐고 후처리(배너·토스트)만 실패했다. 여기서 "실패"라고 알리면
+        // 실제로는 지워진 글을 두고 사용자가 재시도하게 된다 — 실제로 겪은 증상이다.
+        toast.success(`${ACTION_LABEL[action]} 완료`, {
+          description: "화면 갱신 중 문제가 있었습니다. 목록이 이상하면 새로고침해 주세요.",
+        });
+      } else {
+        // 실패 토스트에 사유(message) 포함 — 화면 상태는 오염하지 않는다 (FR-013)
+        toast.error(`${ACTION_LABEL[action]} 실패`, { description: (err as Error).message });
+      }
     } finally {
       setBusy(null);
+      runningRef.current = false;
+      // 성공·실패 공통. try 안에 두면 refresh 실패가 "액션 실패"로 둔갑한다.
+      router.refresh();
     }
   }
 

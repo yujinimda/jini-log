@@ -40,7 +40,30 @@ function octokit(): Octokit {
   if (cachedOctokit) return cachedOctokit;
   const token = process.env.GITHUB_CONTENT_TOKEN;
   if (!token) throw new GitHubError("GITHUB_CONTENT_TOKEN이 설정되지 않았습니다");
-  cachedOctokit = new Octokit({ auth: token });
+  cachedOctokit = new Octokit({
+    auth: token,
+    log: {
+      debug: () => {},
+      info: () => {},
+      warn: console.warn.bind(console),
+      /**
+       * 404는 우리 흐름에서 정상이다 — getFile은 null, listDir은 []로 처리한다
+       * (파일·디렉토리 없음). 그런데 @octokit/plugin-request-log는 실패 응답을 전부
+       * error로 찍어서, 초안이 0개가 되면 GitHub가 content/drafts에 404를 주고
+       * Next dev 에러 오버레이가 떠버린다(실제로 겪음 — e2e까지 깨졌다).
+       *
+       * 지우지 않고 warn으로 낮춘다: 잘못된 repo 이름 같은 진짜 404도 있으므로
+       * 로그에서 사라지면 안 된다.
+       */
+      error: (message: string, ...rest: unknown[]) => {
+        if (typeof message === "string" && message.includes(" - 404 with id ")) {
+          console.warn(message, ...rest);
+          return;
+        }
+        console.error(message, ...rest);
+      },
+    },
+  });
   return cachedOctokit;
 }
 

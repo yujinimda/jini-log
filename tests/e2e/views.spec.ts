@@ -3,8 +3,10 @@
 
 import { expect, type Page, test } from "@playwright/test";
 import { adminSessionCookie } from "./helpers/auth";
+import { anyPost } from "./helpers/content";
 
-const POST_SLUG = "hello-world";
+const sample = anyPost();
+const POST_SLUG = sample.slug;
 
 async function readDashboardViewCount(page: Page, slug: string): Promise<number> {
   await page.goto("/admin");
@@ -44,9 +46,9 @@ test.describe("조회수 표시", () => {
     const counts = page.locator("article .tabular-nums");
     await expect(counts.first()).toHaveText(/^조회 [\d,]+$/);
 
-    const cardCount = await counts.count();
-    expect(cardCount).toBeGreaterThan(1);
-    // 카드마다 fetch하면 N번 나간다 — in-flight 프로미스 공유로 1번이어야 한다
+    // 카드마다 fetch하면 N번 나간다 — in-flight 프로미스 공유로 1번이어야 한다.
+    // 글 수는 운영 중에 변하므로 "1개 초과"를 전제하지 않는다 (C5)
+    expect(await counts.count()).toBeGreaterThanOrEqual(1);
     expect(getRequests).toHaveLength(1);
   });
 
@@ -80,11 +82,11 @@ test.describe("운영자 조회 제외", () => {
     });
 
     await page.goto(`/posts/${POST_SLUG}`);
-    await expect(page.getByRole("heading", { level: 1, name: "지니로그 시작" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: sample.title })).toBeVisible();
 
     await page.goto("/");
     await page.goto(`/posts/${POST_SLUG}`);
-    await expect(page.getByRole("heading", { level: 1, name: "지니로그 시작" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: sample.title })).toBeVisible();
 
     const after = await readDashboardViewCount(page, POST_SLUG);
 
