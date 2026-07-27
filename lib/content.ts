@@ -15,12 +15,6 @@ function stripCodeFences(body: string): string {
   return body.replace(/^[ \t]*(```|~~~)[^\n]*\n[\s\S]*?(^[ \t]*\1[ \t]*$|(?![\s\S]))/gm, "");
 }
 
-/** 읽기시간(분) = ceil(코드펜스 제거 후 문자 수 / 500), 최소 1분 (data-model §3) */
-export function deriveReadingMinutes(body: string): number {
-  const chars = stripCodeFences(body).trim().length;
-  return Math.max(1, Math.ceil(chars / 500));
-}
-
 /** 마크다운 문법·JSX 컴포넌트 태그를 스트립한 앞 500자 (data-model §1) */
 export function deriveExcerpt(body: string): string {
   const text = stripCodeFences(body)
@@ -51,7 +45,7 @@ export function deriveExcerpt(body: string): string {
 
 /** PostMeta + 본문 파생값 — 홈 카드·검색 인덱스 생성기·글 상세 공용 (R6) */
 function withDerived(meta: PostMeta, body: string): PostDerived {
-  return { ...meta, readingMinutes: deriveReadingMinutes(body), excerpt: deriveExcerpt(body) };
+  return { ...meta, excerpt: deriveExcerpt(body) };
 }
 
 export interface ParsedPost {
