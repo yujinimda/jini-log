@@ -126,3 +126,34 @@ test.describe("SEO 메타·sitemap·robots·feed·OG", () => {
     expect(imageResponse.headers()["content-type"]).toMatch(/^image\//);
   });
 });
+
+// 사이트 이름이 <title>·og:site_name·헤더·푸터에서 갈리면 검색 결과와 SNS 공유의
+// 브랜드가 쪼개진다. 실제로 <title>만 "jini-log"로, 나머지는 "지니로그"로 나가고 있었다 (C6).
+test.describe("사이트 정체성 일관성", () => {
+  test("title·og:site_name·헤더 로고·푸터가 모두 같은 사이트 이름을 쓴다", async ({
+    page,
+    request,
+  }) => {
+    const html = await (await request.get("/")).text();
+
+    const title = /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1]?.trim();
+    const ogSiteName = getMetaContent(html, "property", "og:site_name");
+    expect(title).toBeTruthy();
+    expect(ogSiteName).toBeTruthy();
+    expect(title).toBe(ogSiteName);
+
+    await page.goto("/");
+    await expect(page.locator("header a").first()).toHaveText(ogSiteName!);
+    await expect(page.locator("footer")).toContainText(ogSiteName!);
+  });
+
+  test("글 상세 title은 '글 제목 | 사이트 이름' 형식이다", async ({ request }) => {
+    const home = await (await request.get("/")).text();
+    const siteName = getMetaContent(home, "property", "og:site_name")!;
+
+    const html = await (await request.get(`/posts/${sample.slug}`)).text();
+    const title = /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1]?.trim();
+
+    expect(title).toBe(`${sample.title} | ${siteName}`);
+  });
+});

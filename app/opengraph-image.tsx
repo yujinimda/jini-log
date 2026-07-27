@@ -4,7 +4,8 @@ import { SITE_DESCRIPTION, siteName } from "@/components/blog/site";
 
 export const size = OG_SIZE;
 export const contentType = "image/png";
-export const alt = "만지면서 이해하는 기술 블로그";
+// 문구를 다시 쓰지 않는다 — 아래 ogImage에 넘기는 값과 같은 출처여야 한다
+export const alt = SITE_DESCRIPTION;
 
 export default function Image() {
   return ogImage({ title: siteName(), label: SITE_DESCRIPTION });

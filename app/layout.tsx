@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { SITE_DESCRIPTION, siteName } from "@/components/blog/site";
 import "./globals.css";
 
 // self-host 폰트 (research R2) — 소유: 레인 A
@@ -20,12 +21,15 @@ const notoSerifKr = localFont({
   variable: "--font-noto-serif-kr",
 });
 
+// 사이트 정체성의 단일 출처는 components/blog/site.ts다 (SITE_NAME 주입).
+// 여기에 이름을 하드코딩하면 검색 결과 제목만 갈린다 — 실제로 헤더·og:site_name은
+// "지니로그"인데 <title>만 "jini-log"로 나가고 있었다. 브랜드가 쪼개진다.
 export const metadata: Metadata = {
   title: {
-    default: "jini-log",
-    template: "%s | jini-log",
+    default: siteName(),
+    template: `%s | ${siteName()}`,
   },
-  description: "만지면서 이해하는 기술 블로그",
+  description: SITE_DESCRIPTION,
 };
 
 export default function RootLayout({
