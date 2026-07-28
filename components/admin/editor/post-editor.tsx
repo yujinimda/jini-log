@@ -5,12 +5,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
+import { EditorView } from "@codemirror/view";
 import { toast } from "sonner";
 import type { PostActionResponse, PostStatus } from "@/lib/types";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { setPendingDeploy } from "@/components/admin/dashboard/deploy-banner";
+import { insertLink, wrapSelection } from "./commands";
+import { EditorToolbar } from "./editor-toolbar";
 import { FrontmatterFields } from "./frontmatter-form";
-import { imageUploadExtension } from "./image-upload";
+import { imageUploadExtension, uploadImageFiles } from "./image-upload";
 import { Preview } from "./preview";
 import { useDraftBackup } from "./use-draft-backup";
 import {
@@ -94,6 +97,9 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   const extensions = useMemo(
     () => [
       markdown(),
+      // 긴 문단이 접히게 한다 (C8). 이게 없어 한 줄이 길어지면 가로 스크롤이 생겼다 —
+      // 코드가 아니라 산문을 쓰는 에디터라 가로 스크롤은 그 자체로 결함이다.
+      EditorView.lineWrapping,
       imageUploadExtension(
         // 게터는 paste/drop "이벤트 시점"에만 ref를 읽는다 — 렌더 중 접근 아님 (규칙 오탐)
         // eslint-disable-next-line react-hooks/refs
@@ -104,6 +110,34 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
     ],
     [],
   );
+
+  // 툴바가 명령을 보낼 대상 (C8). onCreateEditor로 EditorView를 잡아둔다.
+  const viewRef = useRef<EditorView | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  /** 파일 대화상자가 열리면 포커스가 에디터를 떠난다 — 삽입 위치를 미리 붙잡는다 */
+  const pendingImagePos = useRef(0);
+
+  const pickImage = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    pendingImagePos.current = view.state.selection.main.head;
+    fileInputRef.current?.click();
+  };
+
+  const onImageFilesSelected = async (files: FileList | null) => {
+    const view = viewRef.current;
+    if (!view || !files || files.length === 0) return;
+    await uploadImageFiles(
+      view,
+      Array.from(files),
+      pendingImagePos.current,
+      () => slugRef.current,
+      (m) => toast.error(m),
+      (m) => toast.success(m),
+    );
+    // 같은 파일을 다시 고를 수 있게 초기화
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const restoreBackup = () => {
     if (!backup.pending) return;
@@ -254,7 +288,30 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
   });
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key !== "s") return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+
+      // 서식 단축키는 툴바 버튼과 같은 명령을 부른다 (C8).
+      // 에디터에 포커스가 있을 때만 — 제목·요약 입력에서 ⌘B가 먹으면 곤란하다.
+      const inEditor = viewRef.current?.hasFocus;
+      if (inEditor) {
+        if (e.key === "b") {
+          e.preventDefault();
+          wrapSelection(viewRef.current, "**", "**", "굵은 텍스트");
+          return;
+        }
+        if (e.key === "i") {
+          e.preventDefault();
+          wrapSelection(viewRef.current, "*", "*", "기울인 텍스트");
+          return;
+        }
+        if (e.key === "k") {
+          e.preventDefault();
+          insertLink(viewRef.current);
+          return;
+        }
+      }
+
+      if (e.key !== "s") return;
       e.preventDefault();
       if (canSaveDraft) void runActionRef.current("save-draft");
     };
@@ -482,21 +539,37 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
       </div>
 
       <main className="flex min-h-0 flex-1">
+        {/* 툴바 + 에디터를 세로로 쌓는다. height="100%"인 CodeMirror 위에 그냥 올리면
+            높이가 넘치므로 flex column + min-h-0으로 잡는다 (codex-review 반영). */}
         <section
-          className={`min-w-0 flex-1 border-r border-zinc-200 ${
-            mobilePane === "write" ? "" : "hidden md:block"
+          className={`flex min-h-0 min-w-0 flex-1 flex-col border-r border-zinc-200 ${
+            mobilePane === "write" ? "" : "hidden md:flex"
           }`}
           aria-label="마크다운 편집"
         >
-          <CodeMirror
-            value={body}
-            onChange={setBody}
-            extensions={extensions}
-            height="100%"
-            // 에디터 내부 여백 — 예전에는 글자가 거터에 붙어 시작했다
-            className="admin-editor h-full text-sm"
-            placeholder="마크다운으로 본문을 씁니다. <Callout>·<Collapse> 컴포넌트를 쓸 수 있고, 이미지는 붙여넣거나 끌어다 놓으면 업로드됩니다."
+          <EditorToolbar getView={() => viewRef.current} onPickImage={pickImage} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            multiple
+            className="hidden"
+            onChange={(e) => void onImageFilesSelected(e.target.files)}
           />
+          <div className="min-h-0 flex-1 overflow-auto">
+            <CodeMirror
+              value={body}
+              onChange={setBody}
+              onCreateEditor={(view) => {
+                viewRef.current = view;
+              }}
+              extensions={extensions}
+              height="100%"
+              // 에디터 내부 여백 — 예전에는 글자가 거터에 붙어 시작했다
+              className="admin-editor h-full text-sm"
+              placeholder="마크다운으로 본문을 씁니다. 위 버튼이나 ⌘B·⌘K를 쓸 수 있고, 이미지는 붙여넣거나 끌어다 놓으면 업로드됩니다."
+            />
+          </div>
         </section>
         {showPreview && (
           <section
