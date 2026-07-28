@@ -2,6 +2,7 @@
 // 이미지 붙여넣기/드래그 업로드 (T026, research R8) — 소유: 레인 C
 // CodeMirror paste/drop 이벤트 → /api/admin/images 업로드 → 본문에 ![](path) 자동 삽입.
 import { EditorView } from "@codemirror/view";
+import { rememberUploadedImage } from "./pending-images";
 import { readApiError } from "./types";
 
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
@@ -55,6 +56,8 @@ async function uploadOne(
       throw new Error(err.message);
     }
     const { path } = (await res.json()) as { path: string };
+    // 배포 전까지 이 경로는 404다 — 프리뷰가 대신 쓸 로컬 URL을 남겨둔다 (C10)
+    rememberUploadedImage(path, file);
     replacePlaceholder(view, placeholder, `![](${path})`);
     onSuccess(`이미지 업로드 완료 (${file.name})`);
   } catch (err) {

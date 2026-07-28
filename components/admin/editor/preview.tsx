@@ -17,9 +17,25 @@ import { evaluate } from "@mdx-js/mdx";
 // 발행 본문 타이포(.prose)를 프리뷰에도 동일 적용 — "프리뷰 = 발행 모습" (FR-002)
 import "@/app/(blog)/blog.css";
 import { mdxComponents } from "@/components/mdx/registry";
+import { localPreviewUrl, releasePendingImages } from "./pending-images";
 import { rehypePlugins, remarkPlugins } from "@/lib/mdx-options";
 import type { PostFrontmatter } from "@/lib/types";
 import { humanizeValidationMessage, readApiError } from "./types";
+
+/**
+ * 프리뷰 전용 img (C10) — 이번 세션에 올린 이미지는 로컬 objectURL로 그린다.
+ * 커밋 직후 ~1분간 `/images/...`가 404라 깨진 그림이 보이던 문제.
+ *
+ * 공용 레지스트리(components/mdx/registry.ts)는 건드리지 않는다 — 발행 렌더는
+ * 항상 실제 경로를 써야 하고, 이 치환은 에디터 화면에서만 의미가 있다.
+ */
+function PreviewImage(props: React.ImgHTMLAttributes<HTMLImageElement>) {
+  const { src, alt, ...rest } = props;
+  const resolved = typeof src === "string" ? (localPreviewUrl(src) ?? src) : src;
+  // 발행 본문과 같은 규칙으로 렌더 — next/image는 원격 최적화가 필요해 프리뷰에선 쓰지 않는다
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img {...rest} src={resolved} alt={alt ?? ""} />;
+}
 
 /** "2026-07-27" → "2026년 7월 27일" (발행 글 메타와 같은 표기) */
 function formatPreviewDate(date: string): string {
@@ -175,6 +191,12 @@ export function Preview({
     onVerdict?.(verdict);
   }, [verdict, onVerdict]);
 
+  // 레지스트리는 그대로 두고 img만 프리뷰용으로 덮는다 (C10)
+  const previewComponents = useMemo(() => ({ ...mdxComponents, img: PreviewImage }), []);
+
+  // 페이지를 떠날 때 objectURL 회수
+  useEffect(() => releasePendingImages, []);
+
   const hasHeader = !!(frontmatter.title || frontmatter.description);
 
   return (
@@ -240,7 +262,7 @@ export function Preview({
               </p>
             ) : Content ? (
               <PreviewBoundary resetKey={debouncedBody}>
-                <Content components={mdxComponents} />
+                <Content components={previewComponents} />
               </PreviewBoundary>
             ) : null}
           </div>
