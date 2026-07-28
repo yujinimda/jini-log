@@ -346,7 +346,7 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
           - 이탈(대시보드)은 왼쪽 끝, 발행은 오른쪽 끝 — 예전에는 둘이 붙어 있었다
           - 버튼 타깃 확대(py-1.5 → py-2, text-xs → text-sm)
           - "마지막 저장 —" 대신 저장 여부를 상태로 말한다 */}
-      <div className="sticky top-0 z-40 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-zinc-200 bg-white/95 px-5 py-3 backdrop-blur">
+      <div className="sticky top-0 z-40 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-zinc-200 bg-white/95 px-6 py-3 backdrop-blur sm:px-8">
         <a
           href="/admin"
           className="-ml-1.5 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
@@ -402,7 +402,7 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
 
       {/* 메타 영역 — 폭을 제한한다. 예전에는 px-4뿐이라 1440px 화면에서 제목 입력이
           1400px로 늘어나 스캔이 불가능했다. 폭 토큰은 blog.css의 --content-w 단일 출처. */}
-      <header className="border-b border-zinc-200 bg-white px-5 py-6 sm:px-8 sm:py-8">
+      <header className="border-b border-zinc-200 bg-white px-6 py-7 sm:px-10 sm:py-9">
         <div className="mx-auto w-full max-w-[var(--content-w)]">
           {/* 실패 통지는 toast (T022) — 인라인은 422 행·열/필드 오류 목록과 stale 재로드 유도만 유지 (계약 예외) */}
           {actionError && (errorDetails.length > 0 || isStale) && (

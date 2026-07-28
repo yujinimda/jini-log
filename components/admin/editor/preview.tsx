@@ -180,7 +180,7 @@ export function Preview({
   return (
     <div className="flex h-full min-w-0 flex-col bg-zinc-50">
       {/* 이 패널이 "발행 후 모습"임을 명시한다 — 예전에는 빈 흰 판이라 무엇을 보는지 알기 어려웠다 */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-4 py-2">
+      <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-[clamp(1.5rem,5%,3.5rem)] py-2.5">
         {/* 좁은 화면에서는 위의 탭이 이미 같은 말을 하므로 숨긴다 */}
         <span className="hidden text-xs font-medium text-zinc-500 md:inline">발행 후 모습</span>
         <span className="ml-auto text-xs" aria-live="polite">
@@ -199,7 +199,7 @@ export function Preview({
       </div>
 
       <div className="min-w-0 flex-1 overflow-auto">
-        <article className="mx-auto max-w-[var(--content-w)] px-6 py-8">
+        <article className="mx-auto max-w-[var(--content-w)] px-[clamp(1.5rem,5%,3.5rem)] py-10">
           {/* 발행 글 헤더와 같은 구성 — 세리프 제목은 여기에서만 (어드민 톤 규칙).
               예전에는 본문만 렌더해서 제목·요약·날짜·태그가 프리뷰에 없었다 (codex-review 반영) */}
           {hasHeader && (
