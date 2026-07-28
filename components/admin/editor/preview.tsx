@@ -180,7 +180,7 @@ export function Preview({
   return (
     <div className="flex h-full min-w-0 flex-col bg-zinc-50">
       {/* 이 패널이 "발행 후 모습"임을 명시한다 — 예전에는 빈 흰 판이라 무엇을 보는지 알기 어려웠다 */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-[clamp(1.5rem,5%,3.5rem)] py-2.5">
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-[clamp(1.5rem,5%,3.5rem)]">
         {/* 좁은 화면에서는 위의 탭이 이미 같은 말을 하므로 숨긴다 */}
         <span className="hidden text-xs font-medium text-zinc-500 md:inline">발행 후 모습</span>
         <span className="ml-auto text-xs" aria-live="polite">
