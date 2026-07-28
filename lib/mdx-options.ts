@@ -1,6 +1,7 @@
 // MDX 컴파일 설정의 단일 진실 공급원 (research R1) — 소유: 레인 A
 // 서버 렌더(lib/mdx.ts)·서버 검증·클라이언트 프리뷰(레인 C)가 전부 이 모듈만 import한다.
 // 여기 없는 플러그인·정책을 다른 곳에서 덧붙이면 "프리뷰=발행 렌더" 동일성이 깨진다.
+import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import type { Root, Content } from "mdast";
@@ -94,8 +95,17 @@ export function rehypeCollectToc(entries: TocEntry[]) {
   };
 }
 
-/** 렌더·검증·프리뷰 공용 remark 플러그인 목록 */
-export const remarkPlugins = [remarkGfm, remarkForbidEsm];
+/**
+ * 렌더·검증·프리뷰 공용 remark 플러그인 목록.
+ *
+ * remarkBreaks (C8): 문단 안의 단일 개행을 <br>로 렌더한다.
+ * 001 grilling에서는 "표준 마크다운 유지"로 정했으나, 실제로 글을 쓰면서 엔터를 쳐도
+ * 줄이 안 나뉘는 게 반복적으로 문제가 돼 뒤집었다. 한국어 산문 블로그에서는
+ * Notion·velog처럼 엔터 = 줄바꿈이 기대치다.
+ * 기존 발행 글에 문단 내 단일 개행이 0개인 것을 확인하고 켰다 — 렌더 변화 없음.
+ * 되돌리려면 이 배열에서 remarkBreaks만 빼면 된다.
+ */
+export const remarkPlugins = [remarkGfm, remarkBreaks, remarkForbidEsm];
 
 /** 렌더·검증·프리뷰 공용 rehype 플러그인 목록 — rehype-slug가 제목 앵커 id를 부여 (R5) */
 export const rehypePlugins = [rehypeSlug];

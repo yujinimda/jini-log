@@ -116,7 +116,7 @@ export function EditorToolbar({
       aria-label="본문 서식"
       aria-orientation="horizontal"
       onKeyDown={onKeyDown}
-      className="flex flex-wrap items-center gap-0.5 border-b border-zinc-200 bg-zinc-50 px-[clamp(1rem,3%,2rem)] py-1.5"
+      className="flex h-11 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-zinc-200 bg-zinc-50 px-[clamp(1rem,3%,2rem)]"
     >
       {ACTIONS.map((action, i) => (
         <button
