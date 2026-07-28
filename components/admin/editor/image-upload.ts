@@ -84,6 +84,30 @@ async function handleFiles(
 }
 
 /**
+ * 툴바의 "이미지" 버튼용 진입점 (C8) — paste/drop과 **같은 업로드 경로**를 쓴다.
+ * 업로드 로직을 툴바에 다시 구현하면 placeholder 치환·순차 커밋 규칙이 갈라진다
+ * (codex-review 반영).
+ *
+ * 파일 선택 대화상자가 뜨는 동안 포커스가 에디터를 떠나므로, 호출부가 잡아둔
+ * 삽입 위치(pos)를 명시적으로 받는다.
+ */
+export async function uploadImageFiles(
+  view: EditorView,
+  files: File[],
+  pos: number,
+  getSlug: () => string,
+  onError: (message: string) => void,
+  onSuccess: (message: string) => void,
+) {
+  const accepted = files.filter((f) => IMAGE_TYPES.has(f.type));
+  if (accepted.length === 0) {
+    onError("이미지 파일만 올릴 수 있습니다 (png·jpeg·gif·webp)");
+    return;
+  }
+  await handleFiles(view, accepted, pos, getSlug, onError, onSuccess);
+}
+
+/**
  * CodeMirror 확장 — slug는 ref 게터로 읽어 확장 재생성 없이 최신 값을 쓴다.
  * 성공·실패 통지는 콜백으로 위임 (T022 — toast 표출은 에디터가 결정).
  */

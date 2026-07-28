@@ -134,15 +134,22 @@
 /* 어드민 마크다운 에디터 (C7) — CodeMirror 기본값은 글자가 거터에 붙어 시작한다.
    본문을 쓰는 화면이므로 읽기 여백을 준다. .admin-editor 스코프 안에서만 적용. */
 .admin-editor .cm-content {
-  padding: 1.25rem 1.5rem;
-  /* 읽기 폭 상한은 두되 패널보다 넓어지면 안 된다 — 52rem 고정으로 뒀더니
-     분할 화면(약 720px)에서 줄이 잘려 안내 문구가 중간에서 끊겼다. */
-  max-width: min(52rem, 100%);
+  /* CodeMirror가 content-box로 두면 max-width:100%에 padding이 더해져 우측으로 넘친다 —
+     좁은 화면에서 안내 문구가 잘렸다. */
+  box-sizing: border-box;
+  padding-block: 1.75rem;
+  /* 좌우 여백은 패널 폭에 비례해 늘린다 — 24px 고정이었을 때 글이 가장자리에 붙었다.
+     %는 컨테이닝 블록 폭 기준이라 분할(≈720px)에서 36px, 프리뷰를 숨겨 넓어지면 56px. */
+  padding-inline: clamp(1.5rem, 5%, 3.5rem);
+  /* 읽기 폭 상한 — 넓은 화면에서 한 줄이 지나치게 길어지지 않게.
+     줄바꿈(EditorView.lineWrapping)이 켜져 있어 이 값이 폭을 넘기지는 않는다. */
+  max-width: 52rem;
 }
 .admin-editor .cm-gutters {
   background: transparent;
   border-right: none;
-  padding-left: 0.5rem;
+  /* 거터도 본문과 같은 리듬으로 들여쓴다 — 줄번호가 화면 끝에 붙지 않게 */
+  padding-left: clamp(0.75rem, 2%, 1.5rem);
   color: var(--color-zinc-300);
 }
 .admin-editor .cm-line {
