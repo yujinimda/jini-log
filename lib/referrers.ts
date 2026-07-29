@@ -66,6 +66,29 @@ export const REFERRER_LABELS: Record<ReferrerKey, string> = {
  */
 const GOOGLE_HOST = /(^|\.)google\.[a-z]{2,3}(\.[a-z]{2})?$/;
 
+/**
+ * 검색엔진의 **운영자용 도구** 호스트 — 유입이 아니라 사이트 주인의 점검이다.
+ *
+ * 둘 다 아래 규칙에 그냥 걸려버린다: Search Console은 `search.google.com`이라 GOOGLE_HOST
+ * 정규식에, 네이버 서치어드바이저는 `searchadvisor.naver.com`이라 naver.com 접미사에.
+ * 그래서 소유확인·색인 요청을 하다 자기 글을 한 번 눌러보면 "구글/네이버 검색 유입"으로
+ * 기록된다 — 실제로 2026-07-29 색인 등록 작업 중의 클릭 1건이 "구글 100%"로 표시됐다.
+ *
+ * 내부 이동과 같은 취급(null)을 하는 이유: 새 키를 만들면 DB에 영속되는데 "운영자가 진단
+ * 도구를 몇 번 눌렀나"는 볼 가치가 없고, other로 두면 알려진 비유입이 유입 분모에 계속
+ * 남는다. null은 새 저장 키가 없어 마이그레이션·하위호환 문제도 없다 (codex 상의 반영).
+ *
+ * 운영자 세션 가드(isOperator)가 이미 있지만 이 경우를 못 막는다 — Search Console은 구글
+ * 계정으로 로그인하지, 블로그의 GitHub 세션과는 아무 관계가 없다.
+ *
+ * Bing Webmaster Tools는 `www.bing.com/webmasters`로 **경로로만** 구분되는데 우리는
+ * 호스트만 받으므로 원천적으로 못 거른다. 그 한 건 때문에 경로 수집을 되살리지 않는다.
+ */
+const OPERATOR_TOOL_HOSTS: ReadonlySet<string> = new Set([
+  "search.google.com",
+  "searchadvisor.naver.com",
+]);
+
 /** 호스트 접미사 → 키. 서브도메인을 함께 잡으려고 접미사로 비교한다. */
 const HOST_RULES: ReadonlyArray<readonly [string, ReferrerKey]> = [
   ["naver.com", "naver"],
@@ -91,6 +114,7 @@ const HOST_RULES: ReadonlyArray<readonly [string, ReferrerKey]> = [
  *
  * @param host 유입 호스트명 (빈 문자열 = 직접 유입)
  * @param selfHost 사이트 자신의 호스트 — 내부 이동은 유입이 아니므로 null 반환
+ * @returns 출처 키, 또는 **기록하지 않을 유입**이면 null (사이트 내 이동 · 운영자 도구)
  */
 export function classifyReferrerHost(host: string, selfHost: string | null): ReferrerKey | null {
   const normalized = host.trim().toLowerCase().replace(/^www\./, "");
@@ -104,6 +128,9 @@ export function classifyReferrerHost(host: string, selfHost: string | null): Ref
   // 호스트명이 아닌 값(전체 URL·조작된 문자열)은 받지 않는다.
   // 전체 URL은 "/" ":" 등이 섞여 이 문자셋에서 걸러진다.
   if (!/^[a-z0-9.-]+$/.test(normalized)) return "other";
+
+  // 검색엔진 판정보다 **먼저** 본다 — 뒤에 두면 search.google.com이 GOOGLE_HOST에 먼저 걸린다
+  if (OPERATOR_TOOL_HOSTS.has(normalized)) return null;
 
   if (GOOGLE_HOST.test(normalized)) return "google";
 
