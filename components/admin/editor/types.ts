@@ -6,6 +6,8 @@ export interface FrontmatterForm {
   title: string;
   description: string;
   date: string;
+  /** 좌측 레일의 그룹 기준 — 글당 1개. 발행 시 필수, 초안 저장 시에는 비워도 된다 */
+  category: string;
   tags: string;
 }
 
@@ -14,6 +16,7 @@ export function emptyForm(): FrontmatterForm {
     title: "",
     description: "",
     date: new Date().toISOString().slice(0, 10),
+    category: "",
     tags: "",
   };
 }
@@ -24,6 +27,9 @@ export function toFrontmatter(form: FrontmatterForm): PostFrontmatter {
     title: form.title,
     description: form.description,
     date: form.date,
+    // 앞뒤 공백은 여기서 턴다 — " JavaScript"가 별도 분류로 갈라지지 않게.
+    // 대소문자는 건드리지 않는다: 표기는 사용자 의도다.
+    category: form.category.trim(),
     tags: form.tags
       .split(",")
       .map((t) => t.trim())
@@ -40,6 +46,7 @@ export function fromFrontmatter(data: Record<string, unknown>): FrontmatterForm 
       typeof data.date === "string"
         ? data.date.slice(0, 10)
         : new Date().toISOString().slice(0, 10),
+    category: typeof data.category === "string" ? data.category : "",
     tags: Array.isArray(data.tags) ? data.tags.join(", ") : "",
   };
 }
@@ -62,6 +69,7 @@ const FIELD_LABELS: Record<string, string> = {
   title: "제목",
   description: "요약",
   date: "발행일",
+  category: "분류",
   tags: "태그",
   slug: "slug",
 };

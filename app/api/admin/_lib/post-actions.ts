@@ -34,10 +34,18 @@ function fail(status: number, code: string, message: string, detail?: unknown): 
   throw new PostActionError(status, code, message, detail);
 }
 
-/** frontmatter + 본문 → MDX 파일 원본 (frontmatter 필드 순서 고정) */
+/**
+ * frontmatter + 본문 → MDX 파일 원본 (frontmatter 필드 순서 고정)
+ *
+ * `satisfies PostFrontmatter`가 핵심이다. 예전에는 필드를 손으로 나열만 해서, 스키마에
+ * 새 필드가 생겨도 여기서 조용히 빠졌다 — 검증은 통과하고 커밋된 MDX에는 그 필드가 없어
+ * **API는 성공을 반환하는데 다음 빌드가 깨지는** 형태가 된다(category 추가 때 실제로 그럴
+ * 뻔했다). satisfies를 붙여두면 다음 필드 추가 때 여기서 타입 오류로 잡힌다.
+ */
 function serializePost(frontmatter: PostFrontmatter, body: string): string {
-  const { title, description, date, tags } = frontmatter;
-  return matter.stringify(body.replace(/^\n+/, ""), { title, description, date, tags });
+  const { title, description, date, category, tags } = frontmatter;
+  const meta = { title, description, date, category, tags } satisfies PostFrontmatter;
+  return matter.stringify(body.replace(/^\n+/, ""), meta);
 }
 
 /** 1단계: slug 형식 (FR-016) */

@@ -43,6 +43,7 @@ const publishedPost = {
   title: "Hello World",
   description: "첫 글",
   date: "2026-07-21",
+  category: "Blog",
   tags: ["blog"],
   status: "published" as const,
   // getPublishedPosts가 PostDerived[]로 확장됨 (002 R6)

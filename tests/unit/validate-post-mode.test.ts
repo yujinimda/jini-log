@@ -5,7 +5,15 @@
 import { describe, expect, it } from "vitest";
 import { validatePostInput } from "@/app/api/admin/_lib/validate-post";
 
-const base = { title: "쓰다 만 글", description: "", date: "2026-07-27", tags: [] as string[] };
+// 초안의 "선택"은 키 생략이 아니라 **빈 문자열 허용**이다 — title·description과 같은 완화 방식.
+// 에디터는 항상 모든 키를 보내므로(toFrontmatter) 이게 실제 요청 형태다.
+const base = {
+  title: "쓰다 만 글",
+  description: "",
+  date: "2026-07-27",
+  category: "",
+  tags: [] as string[],
+};
 const BODY = "## 절\n\n본문입니다.";
 
 describe("초안 검증 (mode: draft)", () => {
@@ -51,8 +59,20 @@ describe("발행 검증 (mode: publish)", () => {
   });
 
   it("모두 채우면 통과한다", async () => {
-    const full = { ...base, description: "요약입니다" };
+    const full = { ...base, description: "요약입니다", category: "테스트" };
     await expect(validatePostInput(full, BODY, "publish")).resolves.toMatchObject({ ok: true });
+  });
+
+  it("분류가 없으면 거부한다 — 레일 구조가 무너지지 않게", async () => {
+    // base에는 category가 없다. 초안으로는 저장되지만 발행은 막혀야 한다.
+    const noCategory = { ...base, description: "요약입니다" };
+    const result = await validatePostInput(noCategory, BODY, "publish");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("invalid-frontmatter");
+      expect(result.message).toContain("category");
+    }
   });
 
   it("mode를 생략하면 publish 기준이다 — 기존 호출자의 엄격도가 유지된다", async () => {
