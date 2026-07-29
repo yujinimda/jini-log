@@ -3,7 +3,7 @@
 // 저장 실패·새로고침·브라우저 종료 후에도 작성 내용이 유실되지 않는다.
 // 성공적으로 서버에 저장되면 백업을 지운다.
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FrontmatterForm } from "./types";
+import { emptyForm, type FrontmatterForm } from "./types";
 
 const KEY_PREFIX = "jini-log:backup:";
 
@@ -41,7 +41,14 @@ export function useDraftBackup(params: {
       try {
         const raw = localStorage.getItem(key);
         if (!raw) return;
-        const backup = JSON.parse(raw) as DraftBackup;
+        // 옛 백업에는 나중에 추가된 폼 필드가 없다(category 등). 타입 단언만 하고 쓰면
+        // 복원 직후 form.category가 undefined가 되어 입력이 uncontrolled로 뒤집힌다.
+        // 스키마 기본값은 서버 쪽이라 이 클라이언트 경로를 지켜주지 못한다 (codex 지적).
+        const parsed = JSON.parse(raw) as DraftBackup;
+        const backup: DraftBackup = {
+          ...parsed,
+          form: { ...emptyForm(), ...parsed.form },
+        };
         // 현재 내용과 같으면 복원할 것이 없다
         if (backup.body === body && JSON.stringify(backup.form) === JSON.stringify(form)) {
           return;

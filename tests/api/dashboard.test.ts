@@ -45,6 +45,7 @@ const publishedSource = `---
 title: Hello World
 description: 첫 발행 글
 date: 2026-07-21
+category: Blog
 tags:
   - blog
 ---
@@ -55,6 +56,7 @@ const draftSource = `---
 title: Draft Note
 description: 정상 초안
 date: 2026-07-20
+category: Blog
 tags:
   - draft
 ---
@@ -80,6 +82,7 @@ interface DetailResponse {
     title: string;
     description: string;
     date: string;
+    category: string;
     tags: string[];
   };
   body: string;
@@ -291,6 +294,7 @@ describeListRoute("GET /api/admin/posts", () => {
       title: "Hello World",
       description: "첫 발행 글",
       date: "2026-07-21",
+      category: "Blog",
       tags: ["blog"],
       status: "published",
     });
@@ -299,6 +303,7 @@ describeListRoute("GET /api/admin/posts", () => {
       title: "Draft Note",
       description: "정상 초안",
       date: "2026-07-20",
+      category: "Blog",
       tags: ["draft"],
       status: "draft",
     });
@@ -328,6 +333,7 @@ describeDetailRoute("GET /api/admin/posts/[slug]", () => {
       title: "Draft Note",
       description: "정상 초안",
       date: "2026-07-20",
+      category: "Blog",
       tags: ["draft"],
     });
     expect(body.body.trim()).toBe("Draft body");

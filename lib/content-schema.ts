@@ -26,6 +26,16 @@ export const frontmatterSchema = z.object({
     .min(1, "description은 비울 수 없습니다")
     .max(200, "description은 200자 이하여야 합니다"),
   date: dateField,
+  // 좌측 레일의 그룹 기준 — 글당 정확히 1개. tags와 역할이 다르다:
+  // category는 "큰 묶음"(구조), tags는 "세부 키워드"(/tags·검색).
+  // tags로 그룹핑하면 [javascript, async] 같은 글이 두 그룹에 중복 등장한다.
+  // trim을 min(1)보다 **먼저** 건다. 순서가 반대면 "   "(공백만)이 통과하고,
+  // 그룹핑에서 trim한 순간 이름 없는 분류 그룹이 생긴다 (codex 지적).
+  category: z
+    .string({ error: "category는 필수입니다" })
+    .trim()
+    .min(1, "category는 비울 수 없습니다")
+    .max(30, "category는 30자 이하여야 합니다"),
   tags: z.array(z.string().min(1).max(30)).default([]),
 });
 
@@ -48,6 +58,14 @@ export const draftFrontmatterSchema = z.object({
     .string({ error: "description은 필수입니다" })
     .max(200, "description은 200자 이하여야 합니다"),
   date: dateField,
+  // 초안은 분류를 아직 안 정했을 수 있다 — title·description과 똑같이 "빈 문자열 허용"으로
+  // 푼다(키 생략이 아니라).
+  //
+  // `.default("")`를 두려다 뺐다: "기존 초안이 안 열린다"는 근거가 틀렸기 때문이다.
+  // 초안 목록은 lib/github.ts에서 **발행용** parsePostSource로 읽으므로 default가 있든
+  // 없든 category 없는 옛 초안은 invalid 행이 되고, invalid 행도 편집 링크가 있어 열어서
+  // 다시 저장할 수 있다 (codex 지적).
+  category: z.string({ error: "category는 필수입니다" }).trim().max(30, "category는 30자 이하여야 합니다"),
   tags: z.array(z.string().min(1).max(30)).default([]),
 });
 

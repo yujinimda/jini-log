@@ -32,6 +32,23 @@ test.describe("좌측 전체 글 레일", () => {
     });
   }
 
+  test("레일은 분류 헤더 아래에 글을 묶어 보여준다", async ({ page }) => {
+    // 분류 헤더는 링크가 아니다 — /categories 페이지를 두지 않기로 했고,
+    // 링크가 아니어야 위 "링크 수 = 발행 글 수" 계약도 그대로 성립한다.
+    await page.goto("/");
+
+    const rail = page.getByRole("navigation", { name: "전체 글" });
+    const categories = [...new Set(posts.map((p) => p.category))];
+
+    expect(categories.every(Boolean)).toBe(true);
+    for (const category of categories) {
+      const heading = rail.getByRole("heading", { name: category, exact: true });
+      await expect(heading).toBeVisible();
+      // 헤더가 링크로 새지 않았는지 — 계약 회귀 방지
+      await expect(rail.getByRole("link", { name: category, exact: true })).toHaveCount(0);
+    }
+  });
+
   test("현재 보고 있는 글은 레일에서 aria-current로 표시된다", async ({ page }) => {
     await page.goto(`/posts/${sample.slug}`);
 

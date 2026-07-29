@@ -6,7 +6,7 @@ import { SearchCommand } from "@/components/blog/search-command";
 import { SiteFooter } from "@/components/blog/site-footer";
 import { SiteHeader } from "@/components/blog/site-header";
 import { siteUrl } from "@/components/blog/site";
-import { getPublishedPosts } from "@/lib/content";
+import { getPublishedPosts, groupPostsByCategory } from "@/lib/content";
 import "./blog.css";
 
 // OG 이미지 등 상대 경로 메타데이터의 절대 URL 기준 (T035) + RSS 자동 발견 (T038)
@@ -19,15 +19,16 @@ export const metadata: Metadata = {
 
 export default async function BlogLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // 좌측 전체 글 목록 — 서버에서 읽어 정적 HTML에 포함시킨다 (SSG 유지, C4).
-  // slug·title만 추려 넘긴다 — 본문·발췌가 클라이언트 번들에 실리지 않도록.
-  const posts = (await getPublishedPosts()).map(({ slug, title }) => ({ slug, title }));
+  // 분류 → 글 2단으로 묶는 것까지 서버에서 끝낸다: 클라이언트 컴포넌트는 계속
+  // usePathname 하이라이트만 맡고, slug·title 외에는 번들로 넘어가지 않는다.
+  const groups = groupPostsByCategory(await getPublishedPosts());
 
   return (
     // 컨테이너 폭 = 본문 48rem + 좌우 패딩. max-w-3xl(48rem)에 px-5를 더하면
     // 실제 본문이 45.5rem으로 줄어 .prose의 48rem이 무의미해진다 (codex-review 반영).
     // --content-w / --gutter는 blog.css의 단일 출처 — 목차·사이드바 위치도 여기서 파생된다.
     <div className="mx-auto flex min-h-dvh w-full max-w-[calc(var(--content-w)+2*var(--gutter))] flex-col px-[var(--gutter)]">
-      <PostSidebar posts={posts} />
+      <PostSidebar groups={groups} />
       <SiteHeader />
       <main className="flex-1 py-10 sm:py-12">{children}</main>
       <SiteFooter />

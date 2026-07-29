@@ -48,6 +48,67 @@ function withDerived(meta: PostMeta, body: string): PostDerived {
   return { ...meta, excerpt: deriveExcerpt(body) };
 }
 
+// ---- 좌측 레일 그룹핑 (분류 → 글) ----
+
+/** 레일 항목 — 본문·발췌를 클라이언트 번들에 싣지 않으려고 slug·title만 남긴다 */
+export interface SidebarPost {
+  slug: string;
+  title: string;
+}
+
+export interface SidebarGroup {
+  /** 표시용 분류명 — 원문 표기를 그대로 쓴다(trim만) */
+  category: string;
+  posts: SidebarPost[];
+}
+
+/**
+ * 발행 글을 분류별로 묶어 레일이 그릴 순서 그대로 돌려준다.
+ *
+ * 서버(app/(blog)/layout.tsx)에서 호출한다 — 결과가 정적 HTML에 들어가야 SSG가 유지되고,
+ * 클라이언트 컴포넌트는 usePathname 하이라이트만 맡는다.
+ *
+ * 그래서 **출력이 결정적이어야 한다.** 같은 입력에 항상 같은 순서가 나오지 않으면 빌드마다
+ * HTML이 흔들린다. 날짜 동률은 slug, 분류 동률은 분류명으로 깬다.
+ *
+ * 정렬 기준을 날짜로 잡은 이유: 가나다순은 최근에 뭘 쓰고 있는지가 안 드러나고,
+ * 글 수 순은 오래된 분류가 계속 위에 남는다.
+ *
+ * 정규화는 하지 않는다 — 스키마(content-schema.ts)가 이미 trim한 값을 보장한다.
+ * 대소문자·내부 공백·한글/영문 표기는 보존한다: `JavaScript`와 `javascript`는 다른 분류다.
+ * 여기서 대소문자까지 합치면 사용자가 의도한 표기가 뭉개진다.
+ *
+ * 비교에 localeCompare를 쓰지 않는 이유: 인자 없는 localeCompare는 실행 환경의 기본
+ * locale을 따르므로 빌드 머신이 바뀌면 순서가 달라질 수 있다. 정적 HTML이 흔들리면 안 되니
+ * 단순 문자열 비교로 고정한다 (codex 지적).
+ */
+export function groupPostsByCategory(posts: PostMeta[]): SidebarGroup[] {
+  const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+  const byCategory = new Map<string, PostMeta[]>();
+  for (const post of posts) {
+    const category = post.category;
+    const bucket = byCategory.get(category);
+    if (bucket) bucket.push(post);
+    else byCategory.set(category, [post]);
+  }
+
+  // 날짜 내림차순, 동률이면 slug 오름차순
+  const byDateDesc = (a: PostMeta, b: PostMeta) => cmp(b.date, a.date) || cmp(a.slug, b.slug);
+
+  return [...byCategory.entries()]
+    .map(([category, group]) => ({ category, posts: [...group].sort(byDateDesc) }))
+    .sort(
+      (a, b) =>
+        // 각 분류의 최신 글(정렬 후 첫 항목) 날짜로 비교
+        cmp(b.posts[0].date, a.posts[0].date) || cmp(a.category, b.category),
+    )
+    .map(({ category, posts: group }) => ({
+      category,
+      posts: group.map(({ slug, title }) => ({ slug, title })),
+    }));
+}
+
 export interface ParsedPost {
   frontmatter: PostFrontmatter;
   body: string;

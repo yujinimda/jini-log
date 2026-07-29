@@ -39,6 +39,7 @@ const validFrontmatter: Frontmatter = {
   title: "Valid Post",
   description: "Valid frontmatter for validate API",
   date: "2026-07-21",
+  category: "Test",
   tags: ["test"],
 };
 

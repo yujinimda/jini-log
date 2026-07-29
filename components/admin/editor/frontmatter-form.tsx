@@ -40,12 +40,15 @@ export function FrontmatterFields({
   slug,
   onSlugChange,
   slugLocked,
+  knownCategories = [],
 }: {
   form: FrontmatterForm;
   onChange: (next: FrontmatterForm) => void;
   slug: string;
   onSlugChange: (slug: string) => void;
   slugLocked: boolean;
+  /** 이미 쓰인 분류 — 자동완성 후보. 고정 목록이 아니라 새 값도 그냥 칠 수 있다 */
+  knownCategories?: string[];
 }) {
   return (
     <div>
@@ -85,8 +88,8 @@ export function FrontmatterFields({
         />
       </div>
 
-      {/* 유틸리티 행 — 발행일·태그·slug */}
-      <div className="mt-6 grid grid-cols-1 gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-[10rem_1fr_1fr]">
+      {/* 유틸리티 행 — 발행일·분류·태그·slug */}
+      <div className="mt-6 grid grid-cols-1 gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-2 lg:grid-cols-[9rem_1fr_1fr_1fr]">
         <label className="block">
           {/* 예전에는 date가 폼 상태에만 있고 입력 UI가 없어 항상 오늘로 고정됐다 — 백데이팅 불가였다 */}
           <span className={utilLabelClass}>발행일</span>
@@ -96,6 +99,26 @@ export function FrontmatterFields({
             value={form.date}
             onChange={(e) => onChange({ ...form, date: e.target.value })}
           />
+        </label>
+
+        <label className="block">
+          {/* 자유 입력 + datalist 자동완성. select가 아닌 이유: 새 분류를 만들려고
+              코드를 고쳐 배포하는 일이 없어야 한다. 대신 기존 값이 후보로 떠서
+              JS/javascript처럼 표기가 갈라지는 걸 줄인다. */}
+          <span className={utilLabelClass}>분류</span>
+          <input
+            className={utilInputClass}
+            list="known-categories"
+            value={form.category}
+            onChange={(e) => onChange({ ...form, category: e.target.value })}
+            placeholder="JavaScript"
+          />
+          <datalist id="known-categories">
+            {knownCategories.map((category) => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
+          <span className="mt-1 block text-xs text-zinc-400">발행하려면 필요합니다</span>
         </label>
 
         <label className="block">

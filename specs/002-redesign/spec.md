@@ -243,3 +243,28 @@ HTML `title` 속성은 지연이 길고 스타일을 줄 수 없어 실질적으
 기록 6케이스), `tests/e2e/layout-rails.spec.ts`(레일 노출·현재 글 표시·좁은 화면 숨김·헤더 진입점).
 테스트가 실제 결함 2건을 잡았다: 클라이언트 모듈의 함수를 서버에서 호출(빌드 실패),
 `localhost`처럼 점 없는 호스트가 self 판정보다 형식 검증에 먼저 걸려 내부 이동이 유입으로 샘.
+
+### C13 — 좌측 레일을 분류 → 글 2단으로 (2026-07-29)
+
+**변경**: 발행 글 frontmatter에 `category`(글당 1개, 발행 필수) 필드를 추가하고, 좌측 `<PostSidebar>`를 평평한 제목 목록에서 **분류 헤더 + 그 아래 글 목록** 2단 구조로 바꿨다.
+
+**이유**: 글이 늘어날수록 평평한 목록은 "이 블로그가 무엇을 다루는가"를 말해주지 못한다. 사용자 결정으로 레일의 역할을 *이동*뿐 아니라 *조망*까지로 넓혔다.
+
+**tags가 아니라 새 필드인 이유**: 태그는 글당 여러 개다. `js-event-loop`는 `[javascript, async]`라 태그로 그룹핑하면 **같은 글이 두 그룹에 중복 등장**하고 레일 길이가 실제 글 수보다 길어진다. 그래서 `category`(1개)와 `tags`(N개)를 역할로 분리했다 — category는 큰 묶음(레일·구조), tags는 세부 키워드(`/tags`·검색). `/tags` 페이지는 그대로 둔다.
+
+**자유 입력 + 자동완성을 택한 이유**: 고정 enum은 새 분류를 만들 때마다 코드 수정·배포가 필요하다. 대신 에디터가 이미 쓰인 분류를 `<datalist>` 후보로 띄워 표기 흔들림(`JS`/`javascript`)을 줄인다. 대소문자 자동 병합·alias 사전은 만들지 않는다 — 사용자가 의도한 표기를 파괴한다.
+
+**영향**:
+
+- `frontmatterSchema` — `category` 필수(`.trim().min(1).max(30)`). **`.trim()`이 `.min(1)`보다 먼저**여야 한다: 순서가 반대면 `"   "`가 통과하고 그룹핑에서 이름 없는 분류가 생긴다.
+- `draftFrontmatterSchema` — 값은 비울 수 있으나 키는 있어야 한다(title·description과 동일한 완화 방식).
+- `lib/content.ts` — 순수 함수 `groupPostsByCategory()` 추가. 서버에서 호출해 결과를 정적 HTML에 넣는다.
+- `app/api/admin/_lib/post-actions.ts` — `serializePost()`에 `category` 추가 + `satisfies PostFrontmatter`.
+- `content/posts/js-event-loop.mdx` — `category: JavaScript`.
+- `/categories` 페이지는 **만들지 않는다.** 레일이 이미 전 분류·전 글을 펼쳐 보여주고, 글 1개짜리 블로그에서 분류당 1건인 페이지를 늘리면 빈 페이지와 sitemap만 늘어난다.
+
+**마이그레이션 순서 (중요)**: 콘텐츠를 **먼저** 커밋하고 스키마를 나중에 조였다(PR #31 → 이 PR). 어드민 대시보드는 런타임에 GitHub 기본 브랜치를 읽고(`getContentList`) 발행 글의 파싱 실패는 throw하므로, 스키마가 먼저 올라가면 아직 `category`가 없는 main의 글 때문에 **대시보드 전체가 500**이 난다. 실제로 그 상태에서 e2e로 재현했다. zod가 모르는 키를 버리는 성질 덕에 콘텐츠 선행은 무해하다.
+
+**codex 크로스 검증에서 잡힌 것**: ① `serializePost()`가 `category`를 버려 "API는 성공, 다음 빌드는 실패"가 될 뻔함 ② `.trim()` 순서 ③ `/admin/write`에서 로컬 파일을 읽으면 `next.config.ts` 트레이싱 밖이라 프로덕션에서 후보가 조용히 빈 배열이 됨 → `getContentList()`로 교체 ④ 옛 localStorage 백업 복원 시 `category` 부재 ⑤ 레일 heading 위계 역전.
+
+**검증**: unit 221 / e2e 41(신규 1: 분류 헤더 노출 + 헤더가 링크가 아님) / lint·tsc·build 통과, 공개 페이지 `○`/`●` 유지. 레일 렌더는 스크린샷으로 확인.

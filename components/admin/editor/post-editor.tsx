@@ -64,9 +64,15 @@ export interface PostEditorProps {
   initialSlug?: string;
   /** 기존 글 편집 시 상태 (기본 draft) */
   initialStatus?: PostStatus;
+  /**
+   * 이미 쓰인 분류 목록 — 분류 입력의 자동완성 후보.
+   * 서버 컴포넌트(app/admin/write/page.tsx)가 발행 글에서 뽑아 넘긴다.
+   * 없어도 동작한다(자유 입력이라 후보는 편의일 뿐).
+   */
+  knownCategories?: string[];
 }
 
-export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
+export function PostEditor({ initialSlug, initialStatus, knownCategories }: PostEditorProps) {
   const editingExisting = !!initialSlug;
   const [loading, setLoading] = useState(editingExisting);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -499,6 +505,7 @@ export function PostEditor({ initialSlug, initialStatus }: PostEditorProps) {
             slug={slug}
             onSlugChange={setSlug}
             slugLocked={status === "published"}
+            knownCategories={knownCategories}
           />
         </div>
       </header>

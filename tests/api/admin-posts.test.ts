@@ -39,6 +39,7 @@ const validFrontmatter: Frontmatter = {
   title: "Test Post",
   description: "A post for API contract tests",
   date: "2026-07-21",
+  category: "Test",
   tags: ["test"],
 };
 
@@ -98,7 +99,7 @@ function githubContentPath(url: string) {
 function encodedMdx(frontmatter: Frontmatter = validFrontmatter, body = "Hello content") {
   const tags = frontmatter.tags.map((tag) => `  - ${tag}`).join("\n");
   return Buffer.from(
-    `---\ntitle: ${frontmatter.title}\ndescription: ${frontmatter.description}\ndate: ${frontmatter.date}\ntags:\n${tags}\n---\n\n${body}\n`,
+    `---\ntitle: ${frontmatter.title}\ndescription: ${frontmatter.description}\ndate: ${frontmatter.date}\ncategory: ${frontmatter.category}\ntags:\n${tags}\n---\n\n${body}\n`,
   ).toString("base64");
 }
 
@@ -280,6 +281,10 @@ describeRoute("POST /api/admin/posts", () => {
     expect(decoded).toContain("description");
     expect(decoded).toContain("A post for API contract tests");
     expect(decoded).toContain("Draft body");
+    // serializePost가 필드를 손으로 나열하므로, 스키마에 새 필드가 생겨도 여기서 조용히
+    // 빠질 수 있다 — 검증은 통과하는데 커밋된 MDX엔 없어 다음 빌드가 깨지는 형태가 된다.
+    // 실제로 category 추가 때 그럴 뻔했다. 저장된 원본으로 직접 확인한다.
+    expect(decoded).toContain("category: Test");
   });
 
   it("커밋 규약(FR-009): PUT body에 message와 author 또는 committer가 포함된다", async () => {

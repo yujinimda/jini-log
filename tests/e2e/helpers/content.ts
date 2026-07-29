@@ -14,6 +14,8 @@ export interface FixturePost {
   slug: string;
   title: string;
   description: string;
+  /** 좌측 레일의 그룹 헤더 — 발행 글은 반드시 갖는다 */
+  category: string;
   tags: string[];
   /** h2 절이 있는가 — 목차 관련 테스트의 전제 */
   hasHeadings: boolean;
@@ -27,11 +29,17 @@ export function publishedPosts(): FixturePost[] {
     .map((file) => {
       const raw = readFileSync(resolve(POSTS_DIR, file), "utf8");
       const { data, content } = matter(raw);
-      const fm = data as { title?: unknown; description?: unknown; tags?: unknown };
+      const fm = data as {
+        title?: unknown;
+        description?: unknown;
+        category?: unknown;
+        tags?: unknown;
+      };
       return {
         slug: file.replace(/\.mdx$/, ""),
         title: String(fm.title ?? ""),
         description: String(fm.description ?? ""),
+        category: String(fm.category ?? ""),
         tags: Array.isArray(fm.tags) ? fm.tags.map(String) : [],
         hasHeadings: /^##\s/m.test(content),
       };
