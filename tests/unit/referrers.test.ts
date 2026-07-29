@@ -43,6 +43,23 @@ describe("classifyReferrerHost", () => {
     expect(classifyReferrerHost(host, SELF)).toBe(expected);
   });
 
+  it.each(["search.google.com", "searchadvisor.naver.com"])(
+    "검색엔진 운영자 도구 %s는 유입이 아니므로 null을 반환한다",
+    (host) => {
+      // Search Console·서치어드바이저는 사이트 주인이 자기 사이트를 점검하는 도구다.
+      // 접미사 규칙에 걸려 각각 google·naver 검색 유입으로 잡히면 표본이 작을수록
+      // 지표가 통째로 뒤집힌다 — 실제로 2026-07-29 색인 등록 중 누른 클릭 1건이
+      // "구글 유입 100%"로 표시됐다 (codex 상의 반영).
+      expect(classifyReferrerHost(host, SELF)).toBeNull();
+    },
+  );
+
+  it("운영자 도구를 걸러도 같은 도메인의 정상 검색 유입은 남는다", () => {
+    // 과잉 차단 방지 — google/naver 전체를 버리는 게 아니다
+    expect(classifyReferrerHost("www.google.com", SELF)).toBe("google");
+    expect(classifyReferrerHost("search.naver.com", SELF)).toBe("naver");
+  });
+
   it("알 수 없는 도메인은 other로 묶는다", () => {
     expect(classifyReferrerHost("news.ycombinator.com", SELF)).toBe("other");
     expect(classifyReferrerHost("blog.example.co.kr", SELF)).toBe("other");

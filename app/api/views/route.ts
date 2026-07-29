@@ -86,7 +86,8 @@ export async function POST(request: Request): Promise<Response> {
     // 실패해도 조회수 기록을 되돌리지 않는다: 부가 지표가 본 지표를 깨면 안 된다.
     if (typeof referrerHost === "string") {
       const source = classifyReferrerHost(referrerHost, selfHost(request));
-      // null = 사이트 내 이동 — 유입이 아니므로 기록하지 않는다
+      // null = 사이트 내 이동 또는 검색엔진 운영자 도구(Search Console·서치어드바이저)
+      // — 둘 다 독자 유입이 아니므로 기록하지 않는다
       if (source) {
         try {
           await incrementReferrer(slug, source);
