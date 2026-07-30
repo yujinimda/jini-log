@@ -1,0 +1,22 @@
+<!-- 파비콘 — 전신은 32px에서 뭉개진다. 얼굴만 크롭하고 눈·불씨를 키운 별도 단순화 버전.
+     Next가 이 파일을 /icon.svg 로 서빙하고 <link rel="icon">을 자동으로 붙인다. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 0 120 175" width="120" height="175">
+  <polygon points="72,78 66,32 72,12 84,8 92,18 92,80" fill="#ddd9d3"/>
+  <polygon points="84,8 92,18 92,80 86,78 86,20" fill="#c9c4bd"/>
+  <polygon points="128,78 134,32 128,12 116,8 108,18 108,80" fill="#d3cec7"/>
+  <polygon points="116,8 108,18 108,80 114,78 114,20" fill="#bdb7b0"/>
+  <polygon points="74,72 100,68 100,88 54,88" fill="#e8e5e0"/>
+  <polygon points="100,68 126,72 146,88 100,88" fill="#dbd7d1"/>
+  <polygon points="54,88 100,88 100,116 48,116" fill="#e3dfda"/>
+  <polygon points="100,88 146,88 152,116 100,116" fill="#d2cdc6"/>
+  <polygon points="48,116 100,116 100,142 54,142" fill="#dedad4"/>
+  <polygon points="100,116 152,116 146,142 100,142" fill="#ccc7c0"/>
+  <polygon points="54,142 100,142 100,164 74,158" fill="#d8d4ce"/>
+  <polygon points="100,142 146,142 126,158 100,164" fill="#c5c0b9"/>
+  <!-- 눈: 전신판보다 크고 두껍게 — 32px에서 뭉개지지 않도록 -->
+  <polygon points="68,106 95,106 95,116 83,124 68,118" fill="#332f2b"/>
+  <polygon points="132,106 105,106 105,116 117,124 132,118" fill="#332f2b"/>
+  <!-- 담배: 짧고 굵게. 불씨를 키워 작은 크기에서도 색이 보이게 -->
+  <polygon points="104,138 148,144 148,152 104,146" fill="#f4f1ec"/>
+  <polygon points="148,144 160,146 160,154 148,152" fill="#ea580c"/>
+</svg>
