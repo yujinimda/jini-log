@@ -15,14 +15,14 @@ type OgFont = { name: string; data: Buffer; weight: 400 | 700; style: "normal" }
 let fontsPromise: Promise<OgFont[]> | null = null;
 
 /**
- * 제목용 세리프(Noto Serif KR Bold — B1 톤) + 라벨용 산세리프(Pretendard Regular).
+ * 제목·라벨 모두 Pretendard (C16 — 제목 세리프 철회, 웹과 OG의 서체를 일치).
  * 자산이 누락된 배포(파일 트레이싱 실수 등)에서도 OG 라우트가 500이 되지 않도록
  * 실패 시 기본 폰트로 폴백한다 — 한글 글리프는 깨지지만 이미지는 응답한다 (codex-review 반영).
  */
 function loadOgFonts(): Promise<OgFont[]> {
   fontsPromise ??= Promise.all([
-    readFile(path.join(OG_FONT_DIR, "NotoSerifKR-Bold.ttf")).then(
-      (data): OgFont => ({ name: "Noto Serif KR", data, weight: 700, style: "normal" }),
+    readFile(path.join(OG_FONT_DIR, "Pretendard-Bold.otf")).then(
+      (data): OgFont => ({ name: "Pretendard", data, weight: 700, style: "normal" }),
     ),
     readFile(path.join(OG_FONT_DIR, "Pretendard-Regular.otf")).then(
       (data): OgFont => ({ name: "Pretendard", data, weight: 400, style: "normal" }),
@@ -35,7 +35,7 @@ function loadOgFonts(): Promise<OgFont[]> {
   return fontsPromise;
 }
 
-/** 타이포 중심 카드: 세리프 큰 제목 + 하단 라벨 (블로그 톤과 일치하는 zinc 다크) */
+/** 타이포 중심 카드: 굵은 큰 제목 + 하단 라벨 (블로그 톤과 일치하는 zinc 다크) */
 export async function ogImage({ title, label }: { title: string; label: string }) {
   const fonts = await loadOgFonts();
   return new ImageResponse(
@@ -50,7 +50,7 @@ export async function ogImage({ title, label }: { title: string; label: string }
           padding: 80,
           backgroundColor: "#18181b",
           color: "#fafafa",
-          fontFamily: '"Noto Serif KR", serif',
+          fontFamily: '"Pretendard", sans-serif',
         }}
       >
         <div

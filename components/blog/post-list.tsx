@@ -16,7 +16,7 @@ export function PostList({ posts }: { posts: PostDerived[] }) {
       {posts.map((post) => (
         <li key={post.slug} className="py-9 first:pt-0 last:pb-0">
           <article>
-            <h2 className="font-serif text-xl font-bold tracking-tight">
+            <h2 className="text-xl font-bold tracking-tight">
               <Link
                 href={`/posts/${post.slug}`}
                 className="text-zinc-900 transition-colors hover:text-zinc-600"

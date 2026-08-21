@@ -85,7 +85,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       />
       <ViewBeacon slug={post.slug} />
       <header className="mx-auto mb-10 max-w-[var(--content-w)]">
-        <h1 className="font-serif text-3xl leading-snug font-bold tracking-tight text-zinc-900 sm:text-4xl">
+        <h1 className="text-3xl leading-snug font-bold tracking-tight text-zinc-900 sm:text-4xl">
           {post.title}
         </h1>
         <p className="mt-4 text-lg text-zinc-600">{post.description}</p>

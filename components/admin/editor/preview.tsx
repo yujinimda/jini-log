@@ -226,7 +226,7 @@ export function Preview({
               예전에는 본문만 렌더해서 제목·요약·날짜·태그가 프리뷰에 없었다 (codex-review 반영) */}
           {hasHeader && (
             <header className="mb-8 border-b border-zinc-200 pb-6">
-              <h1 className="font-serif text-3xl leading-snug font-bold tracking-tight text-zinc-900">
+              <h1 className="text-3xl leading-snug font-bold tracking-tight text-zinc-900">
                 {frontmatter.title || <span className="text-zinc-300">제목 없음</span>}
               </h1>
               {frontmatter.description && (

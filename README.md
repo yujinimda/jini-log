@@ -81,4 +81,4 @@ docs/design/         설계 문서
 
 - **코드**: [MIT](./LICENSE)
 - **글 (`content/`)**: 저작권 보유. 무단 전재·재배포를 허용하지 않습니다.
-- **폰트 (`assets/fonts/`)**: [Pretendard](https://github.com/orioncactus/pretendard)·[Noto Serif KR](https://fonts.google.com/noto/specimen/Noto+Serif+KR) — SIL Open Font License 1.1. 고지는 [`assets/fonts/LICENSE`](./assets/fonts/LICENSE)에 있습니다.
+- **폰트 (`assets/fonts/`)**: [Pretendard](https://github.com/orioncactus/pretendard) — SIL Open Font License 1.1. 고지는 [`assets/fonts/LICENSE`](./assets/fonts/LICENSE)에 있습니다.

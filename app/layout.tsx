@@ -4,21 +4,15 @@ import { SITE_DESCRIPTION, siteName } from "@/components/blog/site";
 import "./globals.css";
 
 // self-host 폰트 (research R2) — 소유: 레인 A
-// 웹은 woff2(next/font/local), OG 이미지는 같은 서체의 TTF/OTF(assets/fonts/og/)를 fs로 읽는다.
-// 출처: pretendard 패키지(dist/web/variable/woff2), Noto Serif KR은 google/fonts 공식 가변
-// TTF를 KS X 1001 한글 2,350자 + Latin·문장부호 범위로 서브셋한 woff2 (OG용 TTF와 동일 범위).
+// 웹은 woff2(next/font/local), OG 이미지는 같은 서체의 OTF(assets/fonts/og/)를 fs로 읽는다.
+// 출처: pretendard 패키지(dist/web/variable/woff2).
+// Noto Serif KR은 C16에서 제거 — 제목 세리프 철회로 사용처가 없어졌고,
+// 매 페이지 싣던 한글 가변 woff2가 빠져 전 페이지가 가벼워졌다.
 const pretendard = localFont({
   src: "../assets/fonts/web/PretendardVariable.woff2",
   display: "swap",
   weight: "45 920",
   variable: "--font-pretendard",
-});
-
-const notoSerifKr = localFont({
-  src: "../assets/fonts/web/NotoSerifKRVariable-korean.woff2",
-  display: "swap",
-  weight: "200 900",
-  variable: "--font-noto-serif-kr",
 });
 
 // 사이트 정체성의 단일 출처는 components/blog/site.ts다 (SITE_NAME 주입).
@@ -36,7 +30,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" className={`${pretendard.variable} ${notoSerifKr.variable}`}>
+    <html lang="ko" className={pretendard.variable}>
       <body className="antialiased">{children}</body>
     </html>
   );
