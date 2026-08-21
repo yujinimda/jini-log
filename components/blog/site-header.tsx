@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminLink } from "@/components/blog/admin-link";
 import { LogoMark } from "@/components/blog/logo-mark";
+import { MASCOT } from "@/components/blog/mascot-dots";
 import { SearchButton } from "@/components/blog/search-command";
 import { siteName } from "@/components/blog/site";
 
@@ -21,7 +22,29 @@ export function SiteHeader() {
         style={{ paddingBlock: "var(--header-py)" }}
       >
         <Link href="/" className="flex items-center gap-3">
-          <LogoMark className="w-auto shrink-0" style={{ height: "var(--mascot-h)" }} />
+          {/* 마스코트는 헤더 밑선(border-bottom)에 팔을 걸치고 앉는다 — 원본 그림에서
+              팔을 걸치던 테이블 선을 밑선이 대신하고, 손(seatY 아래)은 밑선을 넘어
+              본문 쪽으로 늘어진다. 이 입체감이 의도된 모양이다.
+
+              수치: --mascot-h 는 "선까지의 높이"(seatY)다. 캔버스 전체는 손까지라 그
+              비율(height/seatY)만큼 더 크고, 그만큼 더 내려야 seatY 지점이 밑선에 닿는다.
+              손이 내려오는 길이는 --mascot-h 기준 약 35% — 본문 상단 패딩(py-12=48px)
+              안이라 글과 겹치지 않는다(데스크톱 --mascot-h 9rem 기준 50px).
+              transform이라 레이아웃(행 높이·텍스트·메뉴 정렬)은 seatY 기준 그대로다. */}
+          {/* 래퍼가 레이아웃 몫(선까지 = --mascot-h)만 차지하고, 캔버스는 그 안에서
+              손까지 아래로 넘친다(absolute) — 안 그러면 손 길이만큼 헤더 위쪽에
+              빈 공간이 생긴다. 래퍼 bottom = 캔버스의 seatY 지점이므로,
+              래퍼를 아래 패딩만큼 내리면 seatY가 정확히 밑선에 앉는다. */}
+          <span
+            className="relative block shrink-0"
+            style={{
+              height: "var(--mascot-h)",
+              width: `calc(var(--mascot-h) * ${MASCOT.width / MASCOT.seatY})`,
+              transform: "translateY(var(--header-py))",
+            }}
+          >
+            <LogoMark className="absolute top-0 left-0 w-full" />
+          </span>
           {/* 사이트 정체성의 단일 출처(SITE_NAME) — 하드코딩 금지 (codex-review 반영) */}
           <span className="font-serif text-xl font-bold tracking-tight text-zinc-900">
             {siteName()}
