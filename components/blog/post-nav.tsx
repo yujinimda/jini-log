@@ -20,7 +20,7 @@ function NavLink({
       className={`group flex flex-col gap-1 ${align === "right" ? "items-end text-right" : "items-start"}`}
     >
       <span className="text-xs text-zinc-400">{label}</span>
-      <span className="font-serif font-semibold text-zinc-700 transition-colors group-hover:text-zinc-950">
+      <span className="font-semibold text-zinc-700 transition-colors group-hover:text-zinc-950">
         {post.title}
       </span>
     </Link>

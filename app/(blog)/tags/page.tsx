@@ -36,7 +36,7 @@ export default async function TagsPage() {
   return (
     <div>
       <header className="mb-10">
-        <h1 className="font-serif text-2xl font-bold tracking-tight text-zinc-900">태그</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">태그</h1>
         <p className="mt-2 text-sm text-zinc-500">
           {tags.length}개의 태그로 발행 글을 탐색할 수 있습니다.
         </p>

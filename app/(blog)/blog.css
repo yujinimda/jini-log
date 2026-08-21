@@ -1,6 +1,7 @@
 /* 글 본문 타이포그래피 (002 T009 — B1 순정 미디엄) — MDX 렌더 결과(.prose)에만 적용. 소유: 레인 B
    .prose 클래스명은 에디터 프리뷰와 공유되는 계약(FR-011) — 변경 금지.
-   톤: 세리프 제목 + 무채색(zinc) + 17px/행간 1.8/본문 폭 48rem (docs/design/2026-07-21-002-redesign-design.md) */
+   톤: 무채색(zinc) + 17px/행간 1.8/본문 폭 48rem. 제목 세리프는 C16에서 철회 —
+   픽셀 마스코트 콘셉트(C15)와 겉돌아 Pretendard 굵게로 통일했다. */
 
 /* 레이아웃 수치 단일 출처 (C4, codex-review 반영) — 이 값이 CSS와 컴포넌트 calc()에
    흩어지면 폭을 바꿀 때마다 목차·사이드바 위치가 어긋난다.
@@ -73,11 +74,12 @@
   margin-top: 1.25em;
 }
 
-/* 제목 — 세리프(Noto Serif KR). h4 이하는 산세리프 유지(위계가 좁아 세리프 효과가 약함) */
+/* 제목 — 본문과 같은 Pretendard 굵게 (C16). 원래 세리프(Noto Serif KR)였는데
+   헤더가 픽셀 마스코트+말풍선으로 바뀌면서 문예지 톤의 세리프가 겉돌게 됐다.
+   캐릭터가 성격을 맡았으니 글자는 비켜준다. */
 .prose h1,
 .prose h2,
 .prose h3 {
-  font-family: var(--font-serif);
   color: var(--color-zinc-900);
   font-weight: 700;
   letter-spacing: -0.01em;
