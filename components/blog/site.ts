@@ -20,6 +20,11 @@ export function tagUrl(tag: string): string {
   return `${siteUrl()}/tags/${encodeURIComponent(tag)}`;
 }
 
+/** 분류 페이지 URL (C14) — 분류명은 자유 입력(한글·공백 포함)이라 반드시 인코딩 */
+export function categoryUrl(category: string): string {
+  return `${siteUrl()}/categories/${encodeURIComponent(category)}`;
+}
+
 /**
  * RSS 자동 발견 링크 — Next 메타데이터 병합은 최상위 키 단위 얕은 병합이라
  * 페이지가 alternates(canonical)를 정의하면 레이아웃의 types가 사라진다.

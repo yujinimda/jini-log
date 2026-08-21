@@ -16,6 +16,8 @@ export interface FixturePost {
   description: string;
   /** 좌측 레일의 그룹 헤더 — 발행 글은 반드시 갖는다 */
   category: string;
+  /** YYYY-MM-DD — 레일 "최신 5개" 계약 검증에 필요 */
+  date: string;
   tags: string[];
   /** h2 절이 있는가 — 목차 관련 테스트의 전제 */
   hasHeadings: boolean;
@@ -33,6 +35,7 @@ export function publishedPosts(): FixturePost[] {
         title?: unknown;
         description?: unknown;
         category?: unknown;
+        date?: unknown;
         tags?: unknown;
       };
       return {
@@ -40,6 +43,11 @@ export function publishedPosts(): FixturePost[] {
         title: String(fm.title ?? ""),
         description: String(fm.description ?? ""),
         category: String(fm.category ?? ""),
+        // YAML 파서가 Date 객체로 줄 수 있어 문자열로 정규화 (lib/content-schema.ts와 동일 이유)
+        date:
+          fm.date instanceof Date
+            ? fm.date.toISOString().slice(0, 10)
+            : String(fm.date ?? "").slice(0, 10),
         tags: Array.isArray(fm.tags) ? fm.tags.map(String) : [],
         hasHeadings: /^##\s/m.test(content),
       };

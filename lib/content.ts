@@ -191,3 +191,9 @@ export async function getAllTags(): Promise<string[]> {
   const posts = await getPublishedPosts();
   return [...new Set(posts.flatMap((p) => p.tags))].sort();
 }
+
+/** 발행 글에 존재하는 분류 전부 — 분류 페이지 generateStaticParams·sitemap 공용 (C14) */
+export async function getAllCategories(): Promise<string[]> {
+  const posts = await getPublishedPosts();
+  return [...new Set(posts.map((p) => p.category.trim()))].sort();
+}
