@@ -46,15 +46,19 @@ test.describe("좌측 전체 글 레일", () => {
   test("분류를 클릭하면 최신 글이 열리고, 6개 초과면 '전체 →' 링크가 붙는다", async ({
     page,
   }) => {
+    // 하이드레이션 전 클릭은 네이티브로 열렸다가 React(제어 컴포넌트)가 닫아버린다.
+    // 홈은 마운트 후 GET /api/views 를 쏘므로 그 응답이 곧 "하이드레이션 완료" 신호다 —
+    // 병렬 실행으로 dev 서버가 느릴 때도 결정적으로 기다릴 수 있다.
+    const hydrated = page.waitForResponse((r) => r.url().includes("/api/views"));
     await page.goto("/");
+    await hydrated;
     const rail = page.getByRole("navigation", { name: "전체 글" });
 
     const category = sample.category;
     const expected = postsOfCategory(category);
     const visible = expected.slice(0, RECENT_COUNT);
 
-    // 하이드레이션 전 클릭은 네이티브로 열렸다가 React가 닫아버린다(제어 컴포넌트) —
-    // 실제 사용자의 재클릭처럼 열릴 때까지 재시도한다
+    // 재시도는 이중 안전장치 — 위 신호가 있어도 첫 클릭이 미끄러질 수 있다
     await expect(async () => {
       await rail.getByText(category, { exact: true }).click();
       await expect(rail.getByRole("link", { name: titlePattern(visible[0]) })).toBeVisible({
