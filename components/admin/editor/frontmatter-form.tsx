@@ -12,6 +12,9 @@ import type { FrontmatterForm } from "./types";
 
 const TITLE_MAX = 120;
 const DESCRIPTION_MAX = 200;
+/** 이보다 짧으면 부드럽게 알린다 — 차단은 아니다. 검색 결과에 뜨는 길이를 채우고
+    키워드가 들어갈 만한 최소선. 실제 발행 글들이 95~120자에 들어온다. */
+const DESCRIPTION_MIN_USEFUL = 80;
 
 /** 유틸리티 행 입력 — 작고 조용하게 */
 const utilInputClass =
@@ -70,7 +73,10 @@ export function FrontmatterFields({
         />
       </div>
 
-      {/* 요약 — 제목보다 작고 유틸리티보다 크다. 200자라 한 줄 입력은 좁다 */}
+      {/* 요약 — 제목보다 작고 유틸리티보다 크다. 200자라 한 줄 입력은 좁다.
+          이 값은 검색 결과에 그대로 노출된다 — 그래서 여기에 "사람이 검색창에 칠 말"이
+          들어가야 한다. 제목은 문학적이어도 되지만 요약까지 그러면 검색에 안 걸린다.
+          그 판단은 기계가 못 하므로 안내만 두고 막지는 않는다 (길이만 부드럽게 경고). */}
       <div className="mt-5">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor="post-description" className={utilLabelClass}>
@@ -84,8 +90,19 @@ export function FrontmatterFields({
           className="w-full resize-none rounded-md border border-zinc-200 bg-white px-2.5 py-2 text-sm leading-relaxed text-zinc-700 placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-900/10 focus:outline-none"
           value={form.description}
           onChange={(e) => onChange({ ...form, description: e.target.value })}
-          placeholder="목록 카드와 검색 결과에 쓰입니다"
+          placeholder="예) MySQL 외래키는 어느 테이블에 넣을까요. 가리키는 쪽이 상대 번호를 듭니다…"
         />
+        <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">
+          검색 결과에 그대로 나옵니다 — <strong className="font-medium text-zinc-500">이 글을
+          찾는 사람이 검색창에 칠 말</strong>을 넣으세요. 제목이 은유적일수록 여기서 받쳐줘야
+          합니다.
+        </p>
+        {form.description.length > 0 && form.description.length < DESCRIPTION_MIN_USEFUL && (
+          <p className="mt-1 text-xs text-amber-700">
+            조금 짧아요. {DESCRIPTION_MIN_USEFUL}자쯤 되면 검색 결과에서 잘리지 않고 키워드도
+            들어갑니다.
+          </p>
+        )}
       </div>
 
       {/* 유틸리티 행 — 발행일·분류·태그·slug */}
