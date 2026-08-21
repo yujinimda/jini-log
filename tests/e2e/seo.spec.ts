@@ -143,7 +143,10 @@ test.describe("사이트 정체성 일관성", () => {
     expect(title).toBe(ogSiteName);
 
     await page.goto("/");
-    await expect(page.locator("header a").first()).toHaveText(ogSiteName!);
+    // 헤더의 보이는 텍스트 로고는 말풍선으로 교체됐다 (C15) — 사이트 이름은
+    // sr-only로 홈 링크 안에 남으므로, 보이는 텍스트 대신 홈 링크의
+    // "접근 가능한 이름"(스크린리더·검색엔진이 읽는 값)으로 계약을 검사한다.
+    await expect(page.locator("header a").first()).toHaveAccessibleName(ogSiteName!);
     await expect(page.locator("footer")).toContainText(ogSiteName!);
   });
 
