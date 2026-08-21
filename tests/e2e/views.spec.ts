@@ -78,7 +78,10 @@ test.describe("조회수 표시", () => {
     });
 
     await page.goto(`/posts/${POST_SLUG}`);
-    await expect(page.locator(".tabular-nums").first()).toHaveText(/^조회 [\d,]+$/);
+    // C14에서 레일 분류 뱃지도 tabular-nums를 쓰게 됐다 — 본문 것만 집도록 main으로 스코프
+    await expect(page.getByRole("main").locator(".tabular-nums").first()).toHaveText(
+      /^조회 [\d,]+$/,
+    );
 
     expect(calls.filter((m) => m === "POST")).toHaveLength(1);
     expect(calls.filter((m) => m === "GET")).toHaveLength(1);
