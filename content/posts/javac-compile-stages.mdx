@@ -1,0 +1,293 @@
+---
+title: "☕ javac 컴파일 과정 & 에러 메시지 읽는 법 💯 총정리"
+description: "자바는 컴파일이 필요없다는 오해부터 javac와 java의 차이, 컴파일러가 에러를 한 번에 다 알려주지 않는 이유까지. 에러 개수가 실수 개수와 다른 이유와 줄 번호를 믿지 말아야 할 때를 정리한다."
+date: 2026-08-24
+category: Java
+tags: [java, javac, jvm, 컴파일, 에러메시지]
+---
+
+IDE 없이 `javac` / `java` 만으로 자바를 처음 배우면서, 문법보다 **에러 메시지 읽기**에서 훨씬 많이 막혔다. 문법은 책에 나오는데 에러 메시지를 읽는 법은 어디에도 안 나온다.
+
+이 글은 그 과정에서 확인한 것을 정리한 것이다. 모든 출력은 **Temurin JDK 21** 에서 직접 실행해 확인했다.
+
+## 자바는 컴파일이 필요없다? ❌
+
+1장을 읽고 노트에 이렇게 적었다.
+
+> 객체지향언어 / 어디서든 사용하기 쉬운 언어 / **컴파일이 필요없다**
+
+반대다. 컴파일 없이는 **시작조차 못 한다.**
+
+```bash
+$ ls
+Hello.java          # 소스만 있는 상태
+
+$ java Hello
+오류: 기본 클래스 Hello을(를) 찾거나 로드할 수 없습니다.
+원인: java.lang.ClassNotFoundException: Hello
+
+$ javac Hello.java && java Hello
+hi
+```
+
+`java` 는 `.java` 를 볼 줄 모른다. **`.class` 만 실행한다.**
+
+### 책이 말한 건 "다시" 컴파일할 필요가 없다는 것
+
+C 언어와 대조하면 무슨 말인지 보인다.
+
+```
+C     : 소스 ─(윈도우용 컴파일)─▶ 윈도우 실행파일   ┐ 플랫폼마다
+        소스 ─(맥용 컴파일)───▶ 맥 실행파일       ┘ 컴파일을 다시 한다
+
+자바   : 소스 ─(javac, 한 번)─▶ Hello.class ─▶ 윈도우 JVM ─▶ 실행
+                                          └─▶ 맥 JVM ───▶ 실행
+```
+
+자바에서 번역은 **두 번** 일어난다. 이 둘을 하나로 보면 오해가 생긴다.
+
+| | 누가 | 언제 | 결과물 |
+|---|---|---|---|
+| ① 컴파일 | 내가 `javac` 로 | 코드를 쓴 뒤 **한 번** | `.class` (바이트코드) |
+| ② 번역·실행 | JVM 이 알아서 | **실행할 때마다** | 그 플랫폼의 기계어 |
+
+책에 "자바는 컴파일 언어이면서 인터프리터 언어" 라고 나오는 게 이 두 단계 이야기다. ①이 컴파일, ②가 인터프리터고, **①을 없앨 수는 없다.**
+
+<Callout>
+"플랫폼마다 다시 컴파일할 필요가 없다"를 "컴파일이 필요없다"로 줄이면 틀린 문장이 된다. 개념을 이해하는 것과 한 문장으로 요약하는 것은 다른 일이고, 보통 요약할 때 틀린다.
+</Callout>
+
+## javac 와 java 는 받는 것이 다르다
+
+이 한 줄이 초보가 가장 많이 틀리는 부분을 막아준다.
+
+```bash
+javac Hello.java    # 파일 이름을 받는다.  그래서 확장자가 필요하다
+java  Hello         # 클래스 이름을 받는다. 확장자라는 개념이 없다
+```
+
+`java` 가 원하는 건 "실행할 **클래스**의 이름" 이다. 파일을 지정하는 게 아니다.
+
+| 명령 | 결과 |
+|---|---|
+| `java Hello` | ✅ 정석 |
+| `java Hello.class` | ❌ `ClassNotFoundException: Hello.class` |
+| `java Hello.java` | ✅ JDK 11+ 편의 기능 (아래 참고) |
+
+`Hello.class` 를 주면 자바는 그걸 확장자로 안 보고 **"`Hello` 묶음 안에 있는 `class` 라는 클래스"** 로 해석한다. 그런 건 없으니 못 찾는다.
+
+### java Hello.java 가 되는 이유
+
+JDK 11 부터는 이것도 된다.
+
+```bash
+$ java Hello.java
+hi
+
+$ ls
+Hello.java          # .class 가 없다!
+```
+
+컴파일 없이 되는 것처럼 보이지만, 실행 후에 `.class` 파일이 **생기지 않는다.** 컴파일을 안 한 게 아니라 `javac` 가 메모리에서 돌고 버려진 것이다. 한 파일 실습용 기능이라 파일이 두 개 이상이면 쓸 수 없다.
+
+## 컴파일은 두 단계다 ⭐
+
+여기가 이 글의 핵심이다. 아래 코드에는 **잘못된 곳이 4군데** 있다.
+
+```java
+public class Quiz {
+    public static void main(String[] args) {
+        System.out.println("첫 번째")     // ① 세미콜론 없음
+        System.out.Println("두 번째");    // ② P 가 대문자
+        system.out.println("세 번째");    // ③ s 가 소문자
+        System.out.println('네 번째');    // ④ 작은따옴표
+    }
+}
+```
+
+4개를 다 찾았다고 생각하고 컴파일하면 이렇게 나온다.
+
+```
+Quiz.java:3: error: ';' expected
+Quiz.java:6: error: unclosed character literal
+Quiz.java:6: error: unclosed character literal
+Quiz.java:6: error: not a statement
+4 errors
+```
+
+**②와 ③은 언급조차 없다.** 대신 6번 줄 하나가 에러를 3개 만들었다. 개수만 우연히 4개로 맞은 것이다.
+
+①과 ④를 고치고 다시 컴파일하면, **그제서야** 나머지가 나온다.
+
+```
+Quiz.java:4: error: cannot find symbol
+        System.out.Println("두 번째");
+                  ^
+  symbol:   method Println(String)
+Quiz.java:5: error: package system does not exist
+2 errors
+```
+
+### 왜 한 번에 안 나오나
+
+컴파일이 내부적으로 두 단계로 진행되기 때문이다.
+
+```
+① 문법 검사(파싱)              ② 의미 검사
+   "문장 구조가 말이 되나?"        "그런 이름이 실제로 있나?"
+   세미콜론 · 따옴표 · 중괄호       Println 이 있나 / system 이 있나
+```
+
+**①에서 실패하면 ②는 시작조차 하지 않는다.** 문장 구조를 못 읽었는데 이름을 찾아볼 수는 없다.
+
+- ①단계 에러 → `';' expected`, `unclosed string literal`, `reached end of file while parsing`
+- ②단계 에러 → `cannot find symbol`, `package X does not exist`, `incompatible types`
+
+<Callout type="warn">
+고쳤는데 처음 보는 에러가 뜨면 "더 망가졌다"가 아니라 **"앞 단계는 통과했다"**는 신호다. 컴파일은 원래 하나 고치고 다시 돌리는 걸 반복하는 작업이다.
+</Callout>
+
+## 에러 개수는 실수 개수가 아니다
+
+위 예제에서 `'네 번째'` 라는 **실수 하나**가 에러 **3개**를 만들었다. 작은따옴표 안에 글자가 여러 개라서 컴파일러가 따옴표 짝을 엉뚱하게 묶었기 때문이다.
+
+내가 처음 쓴 코드에서도 똑같은 일이 일어났다.
+
+```java
+3│  System.out.println("이름: 지니")          // 세미콜론 없음
+4│  System.out.println("나이: 28")            // 세미콜론 없음
+5│  System.out.println("좋아하는 것: 커피)     // 따옴표 안 닫음 + 세미콜론 없음
+```
+
+실수는 **4개**인데 에러는 **3개**로 나왔다.
+
+```
+Hello.java:3: error: ';' expected
+Hello.java:4: error: ';' expected
+Hello.java:5: error: unclosed string literal
+3 errors
+```
+
+5번 줄은 실수가 둘인데 `unclosed string literal` 하나만 나왔다. 따옴표가 안 닫혀서 컴파일러가 그 줄의 뒤쪽을 아직 읽지 못했기 때문이다. 세미콜론을 넣어도 그건 자바 눈에는 **문자열 속 글자**다.
+
+```
+System.out.println("좋아하는 것: 커피);
+                    └────────────────┘
+                    자바가 보기엔 여기까지 다 문자열 안쪽
+```
+
+**자바 문자열은 한 줄을 넘어갈 수 없다.** 그래서 줄이 끝나는 순간 에러가 된다.
+
+### 짝이 맞는지는 읽지 말고 센다
+
+`unclosed` 계열은 **개수를 세는 게** 가장 빠르다.
+
+```
+3번 줄: 따옴표 2개  ✅
+4번 줄: 따옴표 2개  ✅
+5번 줄: 따옴표 1개  ❌  ← 짝이 안 맞는다
+```
+
+그냥 읽으면 뇌가 알아서 보정해버려서 못 찾는다.
+
+## 줄 번호를 믿지 말아야 할 때
+
+중괄호를 하나 안 닫으면 이렇게 나온다.
+
+```
+BrokenOnPurpose.java:4: error: reached end of file while parsing
+}
+ ^
+```
+
+4번 줄을 가리키는데 **4번 줄에는 실수가 없다.** 빠뜨린 `}` 가 어디에 있어야 했는지 컴파일러는 알 수 없다. 파일 끝까지 읽고 나서야 "괄호가 안 닫혔네"를 알아채므로, 위치는 **항상 파일 끝**으로 나온다.
+
+<Callout>
+줄 번호는 **"컴파일러가 이상함을 알아챈 위치"**이고, "내가 실수한 위치"와 다를 수 있다. 괄호 계열 에러는 줄 번호를 믿지 말고 들여쓰기를 보면서 짝을 세는 게 빠르다.
+</Callout>
+
+실제로 이 실수는 이렇게도 나타난다.
+
+```java
+for (int i = 0; i < 5; i++);      // 실수로 세미콜론
+{
+    System.out.println(i);         // 반복문 밖! 한 번만 실행된다
+}
+```
+
+`;` 하나가 "아무것도 안 하는 문장"으로 해석되어 그게 반복문의 몸통이 된다. **조건문·반복문 헤더 뒤에 세미콜론이 붙어 있으면 무조건 의심해야 한다.**
+
+## 에러 메시지 사전 — 처음 만나는 5개
+
+직접 일부러 내보고 메시지를 모은 것이다.
+
+### `';' expected`
+
+```
+Hello.java:3: error: ';' expected
+        System.out.println("첫 줄")
+                                 ^
+```
+
+가장 자주 보게 될 에러. `^` 가 세미콜론이 들어갈 자리를 정확히 가리킨다.
+
+### `class X is public, should be declared in a file named X.java`
+
+```
+BrokenOnPurpose.java:1: error: class Broken is public,
+should be declared in a file named Broken.java
+```
+
+`public` 클래스명은 **파일명과 정확히 같아야 한다.** JVM 이 클래스를 파일명으로 찾기 때문이다. `java Hello` 라고 치면 `Hello.class` 를 찾아 나선다.
+
+### `cannot find symbol`
+
+```
+BrokenOnPurpose.java:3: error: cannot find symbol
+        System.out.printLn("안녕");
+                  ^
+  symbol:   method printLn(String)
+  location: variable out of type PrintStream
+```
+
+뜻은 딱 하나 — **"그런 이름을 나는 모른다."** 원인은 거의 항상 오타, 대소문자, 또는 선언을 안 한 것이다. 아래 `symbol:` 줄이 못 찾은 이름을 정확히 알려주니 거기를 보면 된다.
+
+`system.out.println` (소문자 `s`) 은 다른 메시지가 나온다.
+
+```
+error: package system does not exist
+```
+
+컴파일러가 `system` 을 클래스가 아니라 **패키지 이름**으로 해석했기 때문이다.
+
+### `unclosed string literal`
+
+따옴표를 열고 그 줄에서 안 닫았을 때. 위에서 다뤘다.
+
+### `reached end of file while parsing`
+
+중괄호가 안 닫혔을 때. 위에서 다뤘다.
+
+## 컴파일 에러와 실행 에러는 다르다
+
+이 구분을 초반에 잡아두면 헤매는 시간이 줄어든다.
+
+| | 컴파일 에러 | 실행 에러(예외) |
+|---|---|---|
+| 언제 | `javac` 단계 | `java` 로 돌리는 중 |
+| 메시지 시작 | `error:` | `Exception in thread "main"` |
+| 뜻 | 문법·타입이 틀렸다 | 문법은 맞는데 돌려보니 문제가 생겼다 |
+
+예를 들어 `int c = 10 / 0;` 은 **컴파일이 통과한다.** 돌릴 때 `ArithmeticException: / by zero` 로 죽는다. `double d = 10 / 0;` 도 똑같이 죽는다 — 오른쪽이 `int` 끼리의 나눗셈이라서다. 반면 `10.0 / 0` 은 죽지 않고 `Infinity` 가 된다.
+
+## 정리 💯
+
+- **컴파일은 없는 게 아니라 한 번만 하는 것이다.** 플랫폼마다 다시 안 해도 될 뿐이다.
+- **`javac` 는 파일 이름, `java` 는 클래스 이름을 받는다.** 그래서 `java Hello.class` 는 안 된다.
+- **컴파일은 ① 문법 검사 → ② 의미 검사 두 단계다.** ①에서 걸리면 ②는 검사조차 안 한다.
+- **에러 개수 ≠ 실수 개수.** 실수 하나가 에러 3개를 만들 수 있다.
+- **새 에러가 나오면 진전이다.** 앞 단계를 통과했다는 뜻이다.
+- **줄 번호는 컴파일러가 알아챈 위치**이고 내 실수 위치가 아닐 수 있다.
+- **괄호·따옴표는 읽지 말고 개수를 센다.**
+
+마지막으로, 가장 크게 남은 것 하나. **일부러 낸 에러보다 직접 틀려서 만난 에러가 훨씬 잘 남는다.** 과제로 만든 에러 4종보다, 첫 코드에서 세미콜론을 빼먹어 만난 `';' expected` 가 더 기억에 남았다. 에러가 났을 때 바로 고치지 말고 메시지를 한 번 읽어보는 게 결국 제일 빠른 길이었다.
