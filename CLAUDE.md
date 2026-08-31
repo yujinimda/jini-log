@@ -44,6 +44,7 @@
 - **유입 "출처"만 집계한다.** 검색어는 Referrer-Policy 때문에 원천적으로 얻을 수 없다.
 - **이미지는 GitHub `public/images/{slug}/`에 커밋 → 재배포돼야 서빙된다.** 그 사이 ~1분은 404라 프리뷰가 objectURL로 대체한다(`pending-images.ts`).
 - **e2e는 콘텐츠를 하드코딩하지 않는다.** `tests/e2e/helpers/content.ts`가 `content/posts`에서 픽스처를 읽는다. 전제(글 2개 이상, 코드펜스 등)가 없으면 사유를 남기고 skip.
+- **Supabase 무료 플랜은 7일간 API 요청이 없으면 프로젝트를 자동 일시정지한다** — 정지되면 DNS부터 사라져(`NXDOMAIN`) 조회수가 전부 실패한다(사이트는 fire-and-forget 설계라 무사). 방지용으로 `vercel.json`의 크론이 매일 `/api/views`를 호출해 깨어 있게 한다. 그래도 잠들면 supabase.com 대시보드에서 Restore(로그인 필요, 2~3분).
 - **Supabase 마이그레이션은 자동 적용되지 않는다.** service key로는 DDL이 안 되고, 개인 액세스 토큰(`sbp_`) + Management API가 필요하다. 없으면 대시보드 SQL 에디터에서 수동.
 
 ## 글을 쓰거나 발행할 때
